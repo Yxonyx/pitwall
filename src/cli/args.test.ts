@@ -46,4 +46,26 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['relay', 'radio'], env)).toThrow(UsageError);
     expect(() => parseArgs(['relay', 'init', '--no-work'], env)).toThrow(UsageError);
   });
+
+  test('parses a bot joining, saying and reading', () => {
+    expect(parseArgs(['member', 'join', 'http://127.0.0.1:8787', 'join_abc', '--name', 'Helper Bot'], env)).toEqual({
+      kind: 'member-join',
+      url: 'http://127.0.0.1:8787',
+      invite: 'join_abc',
+      name: 'Helper Bot',
+      home: '/Users/ada/.pitwall',
+    });
+    expect(parseArgs(['say', 'build', 'is', 'green', '--as', 'helper-bot'], env)).toEqual({
+      kind: 'say',
+      text: 'build is green',
+      as: 'helper-bot',
+      home: '/Users/ada/.pitwall',
+    });
+    expect(parseArgs(['read', '--limit', '5'], env)).toEqual({ kind: 'read', as: undefined, limit: 5, home: '/Users/ada/.pitwall' });
+  });
+
+  test('refuses an empty say and a limit that is not a number', () => {
+    expect(() => parseArgs(['say'], env)).toThrow(UsageError);
+    expect(() => parseArgs(['read', '--limit', 'many'], env)).toThrow(UsageError);
+  });
 });

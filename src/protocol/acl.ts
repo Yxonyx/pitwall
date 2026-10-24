@@ -1,7 +1,12 @@
 import type { Role } from './types.js';
 
 export function canPost(role: Role): boolean {
-  return role === 'owner' || role === 'peer';
+  return role === 'owner' || role === 'peer' || role === 'bot';
+}
+
+/** Bots join the conversation as agents, so the room shows them as agents. */
+export function senderKindOf(role: Role): 'human' | 'agent' {
+  return role === 'bot' ? 'agent' : 'human';
 }
 
 export function canRequestWork(role: Role): boolean {

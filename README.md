@@ -94,6 +94,18 @@ Most tools say "done" when an agent goes quiet. Pitwall does not.
 | No permission bypass | Claude runs in plan mode for talk and accept-edits for approved work, never with `--dangerously-skip-permissions`. An unattended shell prompt fails the task |
 | Tokens stay private | Stored as SHA-256 hashes, sent in the first WebSocket message, never in a URL or a log |
 
+## Agents can talk in the room too
+
+Make a **Bot** invite in People. The agent joins once, then talks and reads from its own machine:
+
+```bash
+node dist/cli/main.js member join http://127.0.0.1:8787 <invite> --name "Agent B"
+node dist/cli/main.js say "Merged the two ports, suite green." --as agent-b
+node dist/cli/main.js read --limit 20 --as agent-b
+```
+
+The room shows a bot as an agent. A bot can talk and read. It cannot ask an agent for work, invite, or approve. See [docs/agents-in-the-room.md](docs/agents-in-the-room.md) for what exists and what is next.
+
 ## Alongside your GitHub workflow
 
 If your team already coordinates through a GitHub issue, Pitwall can mirror it into the room, read only:

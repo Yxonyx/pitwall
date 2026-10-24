@@ -52,7 +52,98 @@ export async function main(argv: string[]): Promise<void> {
     await joinDaemon(command);
     return;
   }
+  if (command.kind === 'member-join') {
+    await joinMember(command);
+    return;
+  }
+  if (command.kind === 'say') {
+    await say(command);
+    return;
+  }
+  if (command.kind === 'read') {
+    await read(command);
+    return;
+  }
   await startDaemon(command.home, command.name);
+}
+
+interface MemberFile {
+  url: string;
+  token: string;
+  name: string;
+}
+
+async function joinMember(command: Extract<Command, { kind: 'member-join' }>): Promise<void> {
+  const dir = memberDir(command.home);
+  const key = memberKey(command.name);
+  const file = path.join(dir, `${key}.json`);
+  if (existsSync(file)) throw new Error(`${command.name} is already set up. Use: pitwall say <text> --as ${key}`);
+  const response = await fetch(new URL('/api/join', command.url), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ invite: command.invite, kind: 'person', name: command.name }),
+  });
+  const body = (await response.json()) as { token?: string; error?: string };
+  if (!response.ok || typeof body.token !== 'string') throw new Error(body.error || 'The room refused this invite.');
+  const saved: MemberFile = { url: command.url, token: body.token, name: command.name };
+  writeFileSync(file, `${JSON.stringify(saved, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(file, 0o600);
+  console.log(`${command.name} is in the room. Say something: pitwall say "hello" --as ${key}`);
+}
+
+async function say(command: Extract<Command, { kind: 'say' }>): Promise<void> {
+  const member = loadMember(command.home, command.as);
+  const response = await fetch(new URL('/api/say', member.url), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${member.token}` },
+    body: JSON.stringify({ body: command.text }),
+  });
+  const body = (await response.json()) as { error?: string };
+  if (!response.ok) throw new Error(body.error || 'The room did not take the message.');
+  console.log('Sent.');
+}
+
+async function read(command: Extract<Command, { kind: 'read' }>): Promise<void> {
+  const member = loadMember(command.home, command.as);
+  const response = await fetch(new URL('/api/snapshot', member.url), { headers: { authorization: `Bearer ${member.token}` } });
+  const body = (await response.json()) as { messages?: Array<{ senderName: string; body: string; createdAt: string }>; error?: string };
+  if (!response.ok || !body.messages) throw new Error(body.error || 'The room did not answer.');
+  for (const message of body.messages.slice(-command.limit)) {
+    const time = new Date(message.createdAt).toISOString().slice(11, 16);
+    console.log(`${time} ${message.senderName}: ${message.body.replace(/\s+/g, ' ')}`);
+  }
+}
+
+function memberKey(name: string): string {
+  const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!key) throw new Error('The name needs at least one letter or number.');
+  return key;
+}
+
+function memberDir(home: string): string {
+  mkdirSync(home, { recursive: true, mode: 0o700 });
+  chmodSync(home, 0o700);
+  const dir = path.join(home, 'members');
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
+  return dir;
+}
+
+function loadMember(home: string, as: string | undefined): MemberFile {
+  const dir = path.join(home, 'members');
+  const files = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.json')) : [];
+  const key = as ? memberKey(as) : files.length === 1 ? files[0]?.replace(/\.json$/, '') : undefined;
+  if (!key) {
+    if (files.length === 0) throw new Error('No bot is set up. Run pitwall member join.');
+    throw new Error(`Say who: --as ${files.map((file) => file.replace(/\.json$/, '')).join(' or --as ')}`);
+  }
+  const file = path.join(dir, `${key}.json`);
+  if (!existsSync(file)) throw new Error(`No bot named ${as ?? key}. Run pitwall member join.`);
+  const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<MemberFile>;
+  if (typeof parsed.url !== 'string' || typeof parsed.token !== 'string' || typeof parsed.name !== 'string') {
+    throw new Error('The bot config is incomplete. Join the room again.');
+  }
+  return { url: parsed.url, token: parsed.token, name: parsed.name };
 }
 
 async function initRelay(dataDir: string): Promise<void> {

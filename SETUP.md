@@ -66,6 +66,18 @@ node dist/cli/main.js daemon start --name backend
 
 If the machine is offline, the task stays queued. It is assigned when the daemon reconnects. The local row stops the same task from running twice.
 
+## A bot in the room
+
+An agent or a script that should only talk. In People, choose Role = Bot and Invite a person, then on its machine:
+
+```bash
+node dist/cli/main.js member join http://192.168.1.20:8787 <invite> --name "Agent B"
+node dist/cli/main.js say "Suite is green." --as agent-b
+node dist/cli/main.js read --limit 20 --as agent-b
+```
+
+A bot cannot ask an agent for work, invite someone or approve. Its config is `~/.pitwall/members/<name>.json`, mode `0600`. More in [docs/agents-in-the-room.md](docs/agents-in-the-room.md).
+
 ## Work and approval
 
 A peer's work task stays at Needs approval for 30 minutes. An owner presses Approve or Reject. Chat text does not approve it. After approval, the daemon may edit the project folder. Echo still changes nothing.

@@ -20,7 +20,10 @@ export type Command =
       allowWork: boolean;
       home: string;
     }
-  | { kind: 'daemon-start'; name?: string; home: string };
+  | { kind: 'daemon-start'; name?: string; home: string }
+  | { kind: 'member-join'; url: string; invite: string; name: string; home: string }
+  | { kind: 'say'; text: string; as?: string; home: string }
+  | { kind: 'read'; as?: string; limit: number; home: string };
 
 export class UsageError extends Error {
   constructor(message: string) {
@@ -35,6 +38,8 @@ export function parseArgs(argv: string[], env: { home?: string; cwd?: string } =
   const homeDir = env.home ?? os.homedir();
   const cwd = env.cwd ?? process.cwd();
   if (argv.length === 0 || argv[0] === 'help' || argv[0] === '--help' || argv[0] === '-h') return { kind: 'help' };
+  const bare = memberCommand(argv, homeDir);
+  if (bare) return bare;
   const [group, action, ...rest] = argv;
   if (!group || !action) throw new UsageError('Unknown command. Run pitwall --help.');
   if (group === 'relay' && action === 'init') {
@@ -113,7 +118,50 @@ export function parseArgs(argv: string[], env: { home?: string; cwd?: string } =
       home: homePath(one(flags, 'home'), homeDir),
     };
   }
+  if (group === 'member' && action === 'join') {
+    const { positionals, flags } = tokenize(rest, ['name', 'home'], []);
+    const url = positionals[0];
+    const invite = positionals[1];
+    if (!url || !invite || positionals.length !== 2) {
+      throw new UsageError('Usage: pitwall member join <url> <invite> --name <name>');
+    }
+    const name = one(flags, 'name');
+    if (!name || name.length > 40) throw new UsageError('Give the bot a name of up to 40 characters with --name.');
+    return { kind: 'member-join', url: roomUrl(url), invite, name, home: homePath(one(flags, 'home'), homeDir) };
+  }
   throw new UsageError('Unknown command. Run pitwall --help.');
+}
+
+/** `pitwall say <text...>` and `pitwall read`, which have no action word. */
+function memberCommand(argv: string[], homeDir: string): Command | null {
+  const [group, ...rest] = argv;
+  if (group === 'say') {
+    const { positionals, flags } = tokenize(rest, ['as', 'home'], []);
+    const text = positionals.join(' ').trim();
+    if (!text) throw new UsageError('Usage: pitwall say <text> [--as <name>]');
+    return { kind: 'say', text, as: one(flags, 'as'), home: homePath(one(flags, 'home'), homeDir) };
+  }
+  if (group === 'read') {
+    const { positionals, flags } = tokenize(rest, ['as', 'limit', 'home'], []);
+    if (positionals.length > 0) throw new UsageError('Usage: pitwall read [--limit 20] [--as <name>]');
+    const limit = Number(one(flags, 'limit') ?? '20');
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new UsageError('The limit is a number from 1 to 200.');
+    return { kind: 'read', as: one(flags, 'as'), limit, home: homePath(one(flags, 'home'), homeDir) };
+  }
+  return null;
+}
+
+function roomUrl(value: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new UsageError('The room URL must start with http:// or https://.');
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new UsageError('The room URL must start with http:// or https://.');
+  }
+  return parsed.origin;
 }
 
 export function helpText(): string {
@@ -130,6 +178,11 @@ export function helpText(): string {
     '  pitwall daemon join <url> <invite> --name <machine> --agent <agent> [--agent <agent>]',
     '      [--runner echo|claude] [--project dir] [--no-work] [--home dir]',
     '  pitwall daemon start [--name <machine>] [--home dir]',
+    '',
+    'Bots, such as an agent that should talk in the room (it cannot ask for work or approve)',
+    '  pitwall member join <url> <invite> --name <name> [--home dir]    (an owner makes a Bot invite in People)',
+    '  pitwall say <text> [--as <name>]',
+    '  pitwall read [--limit 20] [--as <name>]',
     '',
     'The default runner is echo. It changes nothing. Claude edits files only after an owner approves work.',
   ].join('\n');

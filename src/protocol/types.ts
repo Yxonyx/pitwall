@@ -1,4 +1,5 @@
-export type Role = 'owner' | 'peer' | 'observer';
+/** A bot is an agent or script that talks in the room. It says things; it never asks for work and never approves. */
+export type Role = 'owner' | 'peer' | 'observer' | 'bot';
 
 export type TaskState =
   | 'queued'

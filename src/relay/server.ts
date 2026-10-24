@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
@@ -309,6 +310,18 @@ async function api(
     send(res, 200, room.snapshot(user));
     return;
   }
+  if (req.method === 'POST' && url.pathname === '/api/say') {
+    // The same send the web app makes, for a script or an agent: a line in the room, with a client id so a retry is not a repeat.
+    const body = asRecord(await readJson(req));
+    const result = room.send(user, {
+      clientId: typeof body.clientId === 'string' ? body.clientId : newClientId(),
+      body: body.body,
+      mode: 'say',
+      agentId: null,
+    });
+    send(res, 200, result);
+    return;
+  }
   if (req.method === 'POST' && url.pathname === '/api/invites') {
     const body = asRecord(await readJson(req));
     send(res, 200, room.createInvite(user, body.kind, body.role));
@@ -320,6 +333,10 @@ async function api(
     return;
   }
   throw new ProtocolError('not_found', 'Not found.');
+}
+
+function newClientId(): string {
+  return randomBytes(12).toString('base64url');
 }
 
 function bearer(req: IncomingMessage, room: Room) {

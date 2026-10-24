@@ -561,6 +561,7 @@ function mountInvites(box: HTMLElement, session: string, formError: HTMLElement)
   for (const [value, label] of [
     ['peer', 'Peer'],
     ['observer', 'Observer'],
+    ['bot', 'Bot'],
     ['owner', 'Owner'],
   ] as const) {
     const option = el('option', undefined, label);

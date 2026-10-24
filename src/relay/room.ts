@@ -1,5 +1,5 @@
 import { ProtocolError } from '../protocol/errors.js';
-import { canApprove, canCancel, canInvite, canPost, canRequestWork, workNeedsApproval } from '../protocol/acl.js';
+import { canApprove, canCancel, canInvite, canPost, canRequestWork, senderKindOf, workNeedsApproval } from '../protocol/acl.js';
 import { parseAddress } from '../protocol/address.js';
 import { agentActivity, type Assign, type FanEvent, type Message, type Person, type Role, type SendMode, type Snapshot, type Task, type TaskState } from '../protocol/types.js';
 import { assertTransition, type MoveDetail } from '../protocol/transition.js';
@@ -173,6 +173,9 @@ export class Room {
     if (existing) return { duplicate: true };
 
     const agent = this.resolveAgent(input.agentId, body, mode);
+    if (user.role === 'bot' && (mode === 'work' || agent.kind === 'agent')) {
+      throw new ProtocolError('forbidden', 'A bot can talk in the room. It cannot ask an agent for work.');
+    }
     if (mode === 'status' || agent.kind === 'status') {
       this.postStatus(user, clientId, body || 'Status', at);
       return { duplicate: false };
@@ -181,7 +184,7 @@ export class Room {
       const saved = this.store.transaction(() => {
         const message = this.store.insertMessage({
           clientId,
-          senderKind: 'human',
+          senderKind: senderKindOf(user.role),
           senderId: user.id,
           senderName: user.name,
           body,
@@ -644,8 +647,8 @@ export class Room {
 
 function cleanRole(input: unknown): Role {
   if (input === undefined || input === 'peer') return 'peer';
-  if (input === 'owner' || input === 'observer') return input;
-  throw new ProtocolError('bad_message', 'Role must be owner, peer, or observer.');
+  if (input === 'owner' || input === 'observer' || input === 'bot') return input;
+  throw new ProtocolError('bad_message', 'Role must be owner, peer, observer, or bot.');
 }
 
 function cleanAgents(input: unknown): Array<{ name: string; runtime: string }> {
