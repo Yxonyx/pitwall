@@ -1,0 +1,735 @@
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/outfit/400.css';
+import '@fontsource/outfit/600.css';
+import {
+  agentActivity,
+  applyEvent,
+  applyPresence,
+  applySnapshot,
+  safeHttps,
+  STATE_LABEL,
+  taskBucket,
+  type FanEvent,
+  type Person,
+  type RoomView,
+  type SendMode,
+  type Snapshot,
+  type Task,
+} from '../../src/protocol/index.js';
+import './style.css';
+
+const TOKEN_KEY = 'raj.token';
+
+const app = document.querySelector('#app');
+if (!(app instanceof HTMLElement)) throw new Error('Raj has nowhere to render.');
+
+const token = localStorage.getItem(TOKEN_KEY);
+if (!token) mountJoin(app);
+else void boot(app, token);
+
+if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js');
+
+function mountJoin(root: HTMLElement): void {
+  const main = el('main', 'join');
+  const mark = el('div', 'mark', 'Raj');
+  const title = el('h1', undefined, 'Join the room');
+  const lead = el('p', undefined, 'Use the invite from the person who started Raj.');
+  const form = el('form');
+  form.id = 'join-form';
+  const name = field('Name', 'join-name');
+  name.input.setAttribute('autocomplete', 'nickname');
+  name.input.maxLength = 40;
+  name.input.required = true;
+  const invite = field('Invite', 'join-code');
+  invite.input.required = true;
+  invite.input.autocapitalize = 'off';
+  invite.input.spellcheck = false;
+  const submit = el('button', 'primary', 'Join');
+  submit.id = 'join-submit';
+  submit.type = 'submit';
+  const error = el('p', 'error');
+  error.id = 'join-error';
+  form.append(name.label, invite.label, submit, error);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    error.textContent = '';
+    submit.disabled = true;
+    void fetch('/api/join', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ invite: invite.input.value.trim(), kind: 'person', name: name.input.value.trim() }),
+    })
+      .then(async (response) => {
+        const body = (await response.json()) as { token?: string; error?: string };
+        if (!response.ok || !body.token) throw new Error(body.error || 'That invite did not work.');
+        localStorage.setItem(TOKEN_KEY, body.token);
+        location.replace('/');
+      })
+      .catch((cause: unknown) => {
+        error.textContent = cause instanceof Error ? cause.message : 'That invite did not work.';
+        submit.disabled = false;
+      });
+  });
+  main.append(mark, title, lead, form);
+  root.replaceChildren(main);
+}
+
+async function boot(root: HTMLElement, session: string): Promise<void> {
+  let snapshot: Snapshot;
+  try {
+    snapshot = await loadSnapshot(session);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'unauthorized') {
+      localStorage.removeItem(TOKEN_KEY);
+      mountJoin(root);
+      return;
+    }
+    root.replaceChildren(el('main', 'join', error instanceof Error ? error.message : 'The room is not reachable.'));
+    return;
+  }
+  mountRoom(root, session, snapshot);
+}
+
+function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void {
+  let me = snapshot.me;
+  let view = applySnapshot(snapshot);
+  let mode: SendMode = 'say';
+  let bucket: 'open' | 'waiting' | 'done' = 'open';
+  let tab: 'room' | 'tasks' | 'people' = 'room';
+  let selected = new URLSearchParams(location.search).get('task');
+  let answerFor = '';
+  let link = 'Connecting';
+  let socket: WebSocket | null = null;
+  let generation = 0;
+
+  const shell = el('div', 'shell');
+  shell.id = 'shell';
+  const top = el('header', 'top');
+  const mark = el('div', 'mark', 'Raj');
+  const who = el('div', 'who');
+  who.id = 'who';
+  top.append(mark, who);
+
+  const columns = el('div', 'columns');
+  const room = el('section', 'pane');
+  room.id = 'pane-room';
+  const feed = el('div', 'scroll');
+  feed.id = 'feed';
+  const composer = el('form', 'composer');
+  composer.id = 'composer';
+  const modes = el('div', 'modes');
+  const say = modeButton('mode-say', 'Say');
+  const work = modeButton('mode-work', 'Work');
+  const status = modeButton('mode-status', 'Status');
+  modes.append(say, work, status);
+  const agent = el('select');
+  agent.id = 'agent';
+  const hint = el('p', 'hint');
+  hint.id = 'agent-hint';
+  const body = el('textarea');
+  body.id = 'composer-body';
+  body.placeholder = 'Say something, or address an agent with @name';
+  body.enterKeyHint = 'send';
+  const send = el('button', 'primary', 'Send');
+  send.id = 'send';
+  send.type = 'submit';
+  const formError = el('p', 'error');
+  formError.id = 'form-error';
+  composer.append(modes, agent, hint, body, send, formError);
+
+  const tasks = el('section', 'pane');
+  tasks.id = 'pane-tasks';
+  const filters = el('div', 'filters');
+  const openFilter = filterButton('open', 'Open');
+  const waitingFilter = filterButton('waiting', 'Waiting');
+  const doneFilter = filterButton('done', 'Done');
+  filters.append(openFilter, waitingFilter, doneFilter);
+  const taskList = el('div', 'scroll');
+  taskList.id = 'task-list';
+  const thread = el('div');
+  thread.id = 'thread';
+  thread.hidden = true;
+  const back = el('button', undefined, 'Back');
+  back.id = 'thread-back';
+  back.type = 'button';
+  const threadTitle = el('h2');
+  threadTitle.id = 'thread-title';
+  const threadState = el('p', 'state');
+  threadState.id = 'thread-state';
+  const threadMessages = el('div');
+  threadMessages.id = 'thread-messages';
+  const activity = el('details', 'activity');
+  activity.id = 'thread-activity';
+  const summary = el('summary', undefined, 'Activity');
+  const activityList = el('ol');
+  activityList.id = 'activity';
+  activity.append(summary, activityList);
+  const actions = el('div', 'row');
+  actions.id = 'thread-actions';
+  const answerForm = el('form');
+  answerForm.id = 'answer-form';
+  const answerBody = el('textarea');
+  answerBody.id = 'answer-body';
+  answerBody.placeholder = 'Answer the question';
+  const answerSend = el('button', 'primary', 'Answer');
+  answerSend.type = 'submit';
+  answerForm.append(answerBody, answerSend);
+  answerForm.hidden = true;
+  thread.append(back, threadTitle, threadState, threadMessages, activity, actions, answerForm);
+
+  const people = el('section', 'pane');
+  people.id = 'pane-people';
+  const peopleList = el('div', 'scroll');
+  peopleList.id = 'people-list';
+  const inviteBox = el('div', 'invite-box');
+  inviteBox.id = 'invite-box';
+  const note = el(
+    'p',
+    'note',
+    'Notifications on iPhone need Raj on the Home Screen and an HTTPS address. The room still works in the browser over HTTP while it is open.',
+  );
+  const pushButton = el('button', undefined, 'Enable notifications');
+  pushButton.id = 'enable-push';
+  pushButton.type = 'button';
+  pushButton.hidden = true;
+
+  room.append(feed, composer);
+  tasks.append(filters, taskList, thread);
+  people.append(peopleList, inviteBox, note, pushButton);
+  columns.append(room, tasks, people);
+
+  const nav = el('nav', 'tabs');
+  const navRoom = navButton('nav-room', 'Room');
+  const navTasks = navButton('nav-tasks', 'Tasks');
+  const navPeople = navButton('nav-people', 'People');
+  nav.append(navRoom, navTasks, navPeople);
+  shell.append(top, columns, nav);
+  root.replaceChildren(shell);
+
+  const setMode = (next: SendMode) => {
+    mode = next;
+    say.setAttribute('aria-pressed', next === 'say' ? 'true' : 'false');
+    work.setAttribute('aria-pressed', next === 'work' ? 'true' : 'false');
+    status.setAttribute('aria-pressed', next === 'status' ? 'true' : 'false');
+    paintHint();
+  };
+  say.addEventListener('click', () => setMode('say'));
+  work.addEventListener('click', () => setMode('work'));
+  status.addEventListener('click', () => setMode('status'));
+  setMode('say');
+
+  const setBucket = (next: 'open' | 'waiting' | 'done') => {
+    bucket = next;
+    openFilter.classList.toggle('on', next === 'open');
+    waitingFilter.classList.toggle('on', next === 'waiting');
+    doneFilter.classList.toggle('on', next === 'done');
+    paintTasks();
+  };
+  openFilter.addEventListener('click', () => setBucket('open'));
+  waitingFilter.addEventListener('click', () => setBucket('waiting'));
+  doneFilter.addEventListener('click', () => setBucket('done'));
+  setBucket('open');
+
+  const setTab = (next: 'room' | 'tasks' | 'people') => {
+    tab = next;
+    room.classList.toggle('active', next === 'room');
+    tasks.classList.toggle('active', next === 'tasks');
+    people.classList.toggle('active', next === 'people');
+    navRoom.setAttribute('aria-pressed', next === 'room' ? 'true' : 'false');
+    navTasks.setAttribute('aria-pressed', next === 'tasks' ? 'true' : 'false');
+    navPeople.setAttribute('aria-pressed', next === 'people' ? 'true' : 'false');
+  };
+  navRoom.addEventListener('click', () => setTab('room'));
+  navTasks.addEventListener('click', () => setTab('tasks'));
+  navPeople.addEventListener('click', () => setTab('people'));
+  setTab('room');
+
+  agent.addEventListener('change', paintHint);
+  back.addEventListener('click', () => {
+    selected = null;
+    paintThread();
+    setTab('tasks');
+  });
+
+  composer.addEventListener('submit', (event) => {
+    event.preventDefault();
+    formError.textContent = '';
+    const text = body.value.trim();
+    if (!text && mode !== 'status') {
+      formError.textContent = 'Write a message first.';
+      return;
+    }
+    if (mode === 'work' && !agent.value) {
+      formError.textContent = 'Choose an agent for this work.';
+      return;
+    }
+    const clientId = newClientId();
+    const payload = { type: 'send', clientId, body: text || 'Status', mode, agentId: agent.value || null };
+    if (!sendRaw(payload)) return;
+    body.value = '';
+    window.setTimeout(() => {
+      if (!view.messages.some((message) => message.clientId === clientId)) void refresh();
+    }, 2000);
+  });
+
+  answerForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (!selected) return;
+    const text = answerBody.value.trim();
+    if (!text) return;
+    if (sendRaw({ type: 'answer', taskId: selected, clientId: newClientId(), body: text })) answerBody.value = '';
+  });
+
+  pushButton.addEventListener('click', () => {
+    void enablePush(session).catch((error: unknown) => {
+      formError.textContent = error instanceof Error ? error.message : 'Notifications were not enabled.';
+    });
+  });
+
+  if (me.role === 'owner') mountInvites(inviteBox, session, formError);
+  void fetch('/api/push/key')
+    .then((response) => response.json() as Promise<{ publicKey?: string | null }>)
+    .then((body) => {
+      pushButton.hidden = !body.publicKey;
+    })
+    .catch(() => undefined);
+
+  if (selected) setTab('tasks');
+  paint();
+  connect();
+
+  function paint(): void {
+    paintWho();
+    paintAgents();
+    paintFeed();
+    paintTasks();
+    paintPeople();
+    paintThread();
+  }
+
+  function paintWho(): void {
+    who.textContent = `${me.name} · ${me.role} · ${link}`;
+  }
+
+  function paintHint(): void {
+    const chosen = view.agents.find((item) => item.id === agent.value);
+    if (mode === 'work' && !chosen) hint.textContent = 'Work needs an agent. A peer waits for an owner.';
+    else if (chosen && !chosen.online) hint.textContent = 'This agent is offline. The task waits on the machine.';
+    else if (mode === 'status') hint.textContent = 'Status posts the board. It does not wake agents.';
+    else hint.textContent = '';
+  }
+
+  function paintAgents(): void {
+    const current = agent.value;
+    agent.replaceChildren(el('option', undefined, 'No agent'));
+    const first = agent.options[0];
+    if (first) first.value = '';
+    for (const item of view.agents) {
+      const option = el('option', undefined, `${item.name} · ${item.machineName}${item.online ? '' : ' · offline'}`);
+      option.value = item.id;
+      agent.append(option);
+    }
+    if ([...agent.options].some((option) => option.value === current)) agent.value = current;
+    paintHint();
+  }
+
+  function paintFeed(): void {
+    const nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
+    feed.replaceChildren();
+    if (view.messages.length === 0) {
+      feed.append(el('p', 'empty', 'No messages yet. Say something, or address an agent with @name.'));
+      return;
+    }
+    for (const message of view.messages) feed.append(messageNode(message));
+    if (nearBottom) feed.scrollTop = feed.scrollHeight;
+  }
+
+  function messageNode(message: RoomView['messages'][number]): HTMLElement {
+    const card = el('article', `message ${message.senderKind} ${message.origin === 'github' ? 'mirror' : ''}`);
+    const task = message.taskId ? view.tasks.find((item) => item.id === message.taskId) : undefined;
+    const meta = el(
+      'div',
+      'meta',
+      `${message.senderName}${message.origin === 'github' ? ' · GitHub' : ''} · ${when(message.createdAt)}${task ? ` · ${STATE_LABEL[task.state]}` : ''}`,
+    );
+    const text = el('div', 'body');
+    linkify(text, message.body);
+    card.append(meta, text);
+    if (message.link) {
+      const href = safeHttps(message.link);
+      if (href) {
+        const anchor = el('a', undefined, 'Open on GitHub');
+        anchor.href = href;
+        anchor.target = '_blank';
+        anchor.rel = 'noreferrer noopener';
+        card.append(anchor);
+      }
+    }
+    if (task) {
+      const jump = el('button', undefined, 'Open task');
+      jump.type = 'button';
+      jump.addEventListener('click', () => choose(task.id));
+      card.append(jump);
+    }
+    return card;
+  }
+
+  function paintTasks(): void {
+    const rows = view.tasks.filter((task) => taskBucket(task.state) === bucket);
+    taskList.replaceChildren();
+    if (rows.length === 0) {
+      taskList.append(el('p', 'empty', 'No tasks in this filter.'));
+      return;
+    }
+    for (const task of rows) {
+      const card = el('button', 'task-card');
+      card.type = 'button';
+      card.append(
+        el('div', 'meta', `${task.agentName} · ${task.machineName} · ${task.mode}`),
+        el('div', 'state', STATE_LABEL[task.state]),
+        el('div', 'body', task.body),
+      );
+      card.addEventListener('click', () => choose(task.id));
+      taskList.append(card);
+    }
+  }
+
+  function paintPeople(): void {
+    peopleList.replaceChildren();
+    if (view.people.length === 0) peopleList.append(el('p', 'empty', 'No one else is here yet.'));
+    for (const person of view.people) {
+      const card = el('article', 'person');
+      card.append(el('div', 'meta', person.role), el('div', 'body', `${person.name} · ${person.online ? 'online' : 'offline'}`));
+      peopleList.append(card);
+    }
+    for (const machine of view.machines) {
+      const card = el('article', 'machine');
+      const agents = view.agents.filter((item) => item.machineId === machine.id);
+      card.append(el('div', 'meta', machine.online ? 'Machine online' : 'Machine offline'), el('div', 'body', machine.name));
+      for (const item of agents) {
+        card.append(el('div', 'meta', `${item.name} · ${agentActivity(view.tasks, item.id)} · ${item.online ? 'online' : 'offline'}`));
+      }
+      peopleList.append(card);
+    }
+  }
+
+  function paintThread(): void {
+    const task = view.tasks.find((item) => item.id === selected) ?? null;
+    tasks.classList.toggle('thread-open', Boolean(task) && tab === 'tasks');
+    thread.hidden = !task;
+    if (!task) return;
+    if (answerFor !== task.id) {
+      answerFor = task.id;
+      answerBody.value = '';
+    }
+    threadTitle.textContent = task.body;
+    threadState.textContent = `${STATE_LABEL[task.state]} · ${task.agentName} on ${task.machineName}`;
+    threadMessages.replaceChildren();
+    for (const message of view.messages.filter((item) => item.taskId === task.id)) threadMessages.append(messageNode(message));
+    activityList.replaceChildren();
+    for (const event of view.taskEvents.filter((item) => item.taskId === task.id)) {
+      activityList.append(el('li', undefined, `${when(event.createdAt)} · ${STATE_LABEL[event.state]}${event.note ? ` · ${event.note}` : ''}`));
+    }
+    actions.replaceChildren();
+    if (me.role === 'owner' && task.state === 'needs_approval') {
+      actions.append(action('approve', 'Approve', task), action('reject', 'Reject', task));
+    }
+    if (canCancel(me, task) && !['completed', 'failed', 'cancelled'].includes(task.state)) {
+      actions.append(action('cancel', 'Cancel', task));
+    }
+    const canAnswer = task.state === 'needs_input' && me.role !== 'observer';
+    answerForm.hidden = !canAnswer;
+  }
+
+  function choose(id: string): void {
+    selected = id;
+    setTab('tasks');
+    paintThread();
+  }
+
+  function action(type: 'approve' | 'reject' | 'cancel', label: string, task: Task): HTMLButtonElement {
+    const button = el('button', type === 'approve' ? 'primary' : undefined, label);
+    button.type = 'button';
+    button.id = type;
+    button.addEventListener('click', () => sendRaw({ type, taskId: task.id }));
+    return button;
+  }
+
+  function sendRaw(payload: Record<string, unknown>): boolean {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      formError.textContent = 'Reconnecting. The message was not sent.';
+      return false;
+    }
+    socket.send(JSON.stringify(payload));
+    return true;
+  }
+
+  function connect(): void {
+    const mine = ++generation;
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const ws = new WebSocket(`${protocol}//${location.host}/api/ws`);
+    socket = ws;
+    ws.addEventListener('open', () => ws.send(JSON.stringify({ type: 'auth', token: session, since: view.cursor })));
+    ws.addEventListener('message', (event) => {
+      const message = JSON.parse(String(event.data)) as {
+        type?: string;
+        event?: FanEvent;
+        people?: RoomView['people'];
+        machines?: RoomView['machines'];
+        agents?: RoomView['agents'];
+        error?: string;
+      };
+      if (message.type === 'authed') {
+        link = 'In the room';
+        paintWho();
+        return;
+      }
+      if (message.type === 'event' && message.event) {
+        view = applyEvent(view, message.event);
+        paint();
+        return;
+      }
+      if (message.type === 'presence' && message.people && message.machines && message.agents) {
+        view = applyPresence(view, { people: message.people, machines: message.machines, agents: message.agents });
+        paint();
+        return;
+      }
+      if (message.type === 'error' && message.error) formError.textContent = message.error;
+    });
+    ws.addEventListener('close', () => {
+      if (mine !== generation) return;
+      link = 'Reconnecting';
+      paintWho();
+      window.setTimeout(connect, 1000);
+    });
+  }
+
+  async function refresh(): Promise<void> {
+    try {
+      const next = await loadSnapshot(session);
+      if (next.cursor >= view.cursor) {
+        me = next.me;
+        view = applySnapshot(next);
+      }
+      paint();
+    } catch {
+      link = 'Reconnecting';
+      paintWho();
+    }
+  }
+}
+
+function mountInvites(box: HTMLElement, session: string, formError: HTMLElement): void {
+  const personForm = el('form');
+  personForm.id = 'person-invite';
+  const role = el('select');
+  role.id = 'invite-role';
+  for (const [value, label] of [
+    ['peer', 'Peer'],
+    ['observer', 'Observer'],
+    ['owner', 'Owner'],
+  ] as const) {
+    const option = el('option', undefined, label);
+    option.value = value;
+    role.append(option);
+  }
+  const roleLabel = el('label', undefined, 'Role');
+  roleLabel.append(role);
+  const personButton = el('button', undefined, 'Invite a person');
+  personButton.type = 'submit';
+  personForm.append(roleLabel, personButton);
+
+  const machineForm = el('form');
+  machineForm.id = 'machine-invite';
+  const machine = field('Machine', 'invite-machine');
+  machine.input.value = 'backend';
+  const agentName = field('Agent', 'invite-agent');
+  agentName.input.value = 'coder';
+  const project = field('Project', 'invite-project');
+  project.input.value = '~/project';
+  const machineButton = el('button', undefined, 'Invite a machine');
+  machineButton.type = 'submit';
+  machineForm.append(machine.label, agentName.label, project.label, machineButton);
+
+  const result = el('pre', 'invite-result');
+  result.id = 'invite-result';
+  result.hidden = true;
+  const copy = el('button', undefined, 'Copy');
+  copy.id = 'copy-invite';
+  copy.type = 'button';
+  copy.hidden = true;
+  copy.addEventListener('click', () => {
+    const text = result.textContent ?? '';
+    if (navigator.clipboard) {
+      void navigator.clipboard.writeText(text).catch(() => selectFallback(result));
+      return;
+    }
+    selectFallback(result);
+  });
+
+  personForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void createInvite(session, { kind: 'person', role: role.value }, formError).then((invite) => {
+      if (!invite?.code) return;
+      showInvite(result, copy, `Person invite, ${role.value}, valid until ${invite.expiresAt}\n${invite.code}`);
+    });
+  });
+  machineForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    void createInvite(session, { kind: 'machine' }, formError).then((invite) => {
+      if (!invite?.code) return;
+      const command = [
+        'raj daemon join',
+        location.origin,
+        invite.code,
+        '--name',
+        machine.input.value.trim() || 'backend',
+        '--agent',
+        agentName.input.value.trim() || 'coder',
+        '--runner echo',
+        '--project',
+        project.input.value.trim() || '~/project',
+      ].join(' ');
+      showInvite(result, copy, `Machine invite, valid until ${invite.expiresAt}\n${command}`);
+    });
+  });
+  box.append(personForm, machineForm, result, copy);
+}
+
+function showInvite(result: HTMLElement, copy: HTMLButtonElement, text: string): void {
+  result.hidden = false;
+  copy.hidden = false;
+  result.textContent = text;
+}
+
+async function createInvite(session: string, body: Record<string, string>, formError: HTMLElement): Promise<{ code?: string; expiresAt?: string } | null> {
+  const response = await fetch('/api/invites', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${session}` },
+    body: JSON.stringify(body),
+  });
+  const parsed = (await response.json()) as { code?: string; expiresAt?: string; error?: string };
+  if (!response.ok) {
+    formError.textContent = parsed.error || 'The invite was not created.';
+    return null;
+  }
+  formError.textContent = '';
+  return parsed;
+}
+
+async function enablePush(session: string): Promise<void> {
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+    throw new Error('This browser cannot show Raj notifications.');
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') throw new Error('Notifications stay off until you allow them.');
+  const keyResponse = await fetch('/api/push/key');
+  const keyBody = (await keyResponse.json()) as { publicKey?: string | null };
+  if (!keyBody.publicKey) throw new Error('This relay has no notification key.');
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(keyBody.publicKey),
+  });
+  const response = await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${session}` },
+    body: JSON.stringify(subscription),
+  });
+  if (!response.ok) {
+    const body = (await response.json()) as { error?: string };
+    throw new Error(body.error || 'The room did not save this browser.');
+  }
+}
+
+async function loadSnapshot(session: string): Promise<Snapshot> {
+  const response = await fetch('/api/snapshot', { headers: { authorization: `Bearer ${session}` } });
+  if (response.status === 401) throw new Error('unauthorized');
+  if (!response.ok) throw new Error('The room did not load.');
+  return (await response.json()) as Snapshot;
+}
+
+function canCancel(me: Person, task: Task): boolean {
+  return me.role === 'owner' || (me.role === 'peer' && task.requesterId === me.id);
+}
+
+function linkify(parent: HTMLElement, text: string): void {
+  const parts = text.split(/(https:\/\/[^\s]+)/g);
+  for (const part of parts) {
+    const href = part.startsWith('https://') ? safeHttps(part) : null;
+    if (href) {
+      const anchor = el('a', undefined, href);
+      anchor.href = href;
+      anchor.target = '_blank';
+      anchor.rel = 'noreferrer noopener';
+      parent.append(anchor);
+    } else parent.append(document.createTextNode(part));
+  }
+}
+
+function when(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function newClientId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  const raw = btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  return `c${raw}`;
+}
+
+function urlBase64ToUint8Array(value: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (value.length % 4)) % 4);
+  const base64 = (value + padding).replaceAll('-', '+').replaceAll('_', '/');
+  const raw = atob(base64);
+  const buffer = new ArrayBuffer(raw.length);
+  const bytes = new Uint8Array(buffer);
+  for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
+  return bytes;
+}
+
+function selectFallback(node: HTMLElement): void {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function field(labelText: string, id: string): { label: HTMLLabelElement; input: HTMLInputElement } {
+  const label = el('label', undefined, labelText);
+  const input = el('input');
+  input.id = id;
+  label.append(input);
+  return { label, input };
+}
+
+function modeButton(id: string, label: string): HTMLButtonElement {
+  const button = el('button', undefined, label);
+  button.id = id;
+  button.type = 'button';
+  return button;
+}
+
+function filterButton(id: string, label: string): HTMLButtonElement {
+  const button = el('button', undefined, label);
+  button.id = `filter-${id}`;
+  button.type = 'button';
+  return button;
+}
+
+function navButton(id: string, label: string): HTMLButtonElement {
+  const button = el('button', undefined, label);
+  button.id = id;
+  button.type = 'button';
+  return button;
+}
+
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}

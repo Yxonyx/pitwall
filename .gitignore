@@ -1,0 +1,12 @@
+node_modules/
+dist/
+data/
+.raj/
+coverage/
+*.log
+.DS_Store
+research_notes/
+reports/
+BESZELGETES.md
+*.tsbuildinfo
+.playwright-mcp/

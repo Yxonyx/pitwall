@@ -1,0 +1,237 @@
+:root {
+  color-scheme: dark;
+  --bg: #14110e;
+  --raise: #1e1914;
+  --raise-2: #2a231c;
+  --line: #3c3228;
+  --ink: #f3ead7;
+  --muted: #a89880;
+  --copper: #e0a36a;
+  --copper-deep: #b8733a;
+  --paper: #f3ead7;
+  --paper-ink: #241c16;
+  --ok: #b7c7a1;
+  --danger: #e58a72;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  font-family: Outfit, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+button, a, [role="button"] {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button, input, textarea, select { font: inherit; color: inherit; }
+
+input, textarea, select { font-size: 16px; }
+
+button {
+  border: 0;
+  background: var(--raise-2);
+  color: var(--ink);
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0 16px;
+  cursor: pointer;
+}
+
+button:active { transform: scale(0.98); }
+
+button.primary {
+  background: var(--copper-deep);
+  color: #1a120c;
+  font-weight: 600;
+}
+
+button[aria-pressed="true"], button.on {
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:hover { background: #3a3128; }
+  button.primary:hover { background: #c98448; }
+  button[aria-pressed="true"]:hover, button.on:hover { background: #fff6e8; }
+}
+
+#app { min-height: 100dvh; }
+
+.join {
+  min-height: 100dvh;
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom));
+  max-width: 440px;
+}
+
+.mark {
+  font-family: "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--copper);
+  font-size: 12px;
+}
+
+.join h1 { margin: 0; font-size: 40px; font-weight: 600; letter-spacing: -0.04em; }
+.join p { margin: 0; color: var(--muted); line-height: 1.45; }
+
+form { display: grid; gap: 12px; }
+label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+
+input, textarea, select {
+  width: 100%;
+  background: var(--raise);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+textarea { min-height: 76px; resize: vertical; line-height: 1.4; }
+
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.who { color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 12px; text-align: right; }
+
+.columns { flex: 1; min-height: 0; display: grid; }
+
+.pane {
+  min-height: 0;
+  display: none;
+  flex-direction: column;
+}
+
+.pane.active { display: flex; }
+
+.scroll {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 14px 18px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: #100e0c;
+}
+
+.composer, #answer-form, .invite-box {
+  border-top: 1px solid var(--line);
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 8px;
+  background: #17130f;
+}
+
+.modes, .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.filters { padding: 10px 12px 0; }
+
+.row { display: flex; gap: 8px; align-items: center; }
+.row > * { flex: 1; }
+.hint, .note, .empty, .error { color: var(--muted); font-size: 14px; line-height: 1.45; }
+.error { color: var(--danger); min-height: 1.2em; }
+
+.message, .task-card, .person, .machine {
+  border: 1px solid var(--line);
+  background: var(--raise);
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.message.human { border-color: #5c5144; }
+.message.agent { border-left: 3px solid var(--copper); }
+.message.system, .message.mirror { background: transparent; color: var(--muted); }
+
+.message .meta, .task-card .meta, .person .meta {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.message .body, .task-card .body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.message a { color: var(--copper); }
+
+.task-card { width: 100%; text-align: left; border-radius: 16px; }
+.state { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--copper); }
+
+.activity { margin: 8px 0 12px; color: var(--muted); }
+.activity summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.activity li { margin: 4px 0; }
+
+#thread { min-height: 0; flex-direction: column; }
+#thread[hidden] { display: none; }
+#pane-tasks.thread-open #task-list,
+#pane-tasks.thread-open .filters { display: none; }
+#pane-tasks.thread-open #thread { display: flex; flex: 1; min-height: 0; }
+#thread-title { font-size: 18px; line-height: 1.3; margin: 8px 14px 0; overflow-wrap: anywhere; }
+#thread-state { margin: 4px 14px 8px; }
+#thread-messages { flex: 1; overflow: auto; overscroll-behavior: contain; padding: 0 14px; }
+
+.invite-result {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--raise);
+  border-radius: 14px;
+  padding: 12px;
+  margin: 0;
+}
+
+.note { padding: 0 14px 14px; }
+
+@media (min-width: 960px) {
+  .columns {
+    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr) minmax(260px, 0.8fr);
+  }
+  .pane { display: flex; border-right: 1px solid var(--line); }
+  .tabs { display: none; }
+  .composer { padding-bottom: 12px; }
+  #pane-tasks.thread-open #task-list,
+  #pane-tasks.thread-open .filters { display: block; }
+  #pane-tasks #thread:not([hidden]) { display: flex; max-height: 48dvh; border-top: 1px solid var(--line); }
+  #thread-back { display: none; }
+}
