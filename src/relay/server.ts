@@ -354,7 +354,8 @@ function serveStatic(req: IncomingMessage, res: ServerResponse, root: string | n
   const ext = path.extname(target);
   res.writeHead(200, {
     'content-type': TYPES[ext] ?? 'application/octet-stream',
-    'cache-control': ext === '.html' || target.endsWith('sw.js') ? 'no-cache' : 'public, max-age=31536000',
+    // Vite's hashed files never change; the icons, the manifest and the page keep their names, so they must be checked.
+    'cache-control': target.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache',
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
     'x-frame-options': 'DENY',

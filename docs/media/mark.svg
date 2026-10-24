@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs><clipPath id="room"><path d="M21 12H43A11 11 0 0 1 54 23V35A11 11 0 0 1 43 46H31L19 55V46H21A11 11 0 0 1 10 35V23A11 11 0 0 1 21 12Z"/></clipPath></defs>
+  <g clip-path="url(#room)" fill="#21c7a8">
+    <path d="M0 0H40L28 64H0Z"/>
+    <path d="M44 0H48L36 64H32Z"/>
+    <path d="M51 0H55L43 64H39Z"/>
+    <path d="M58 0H62L50 64H46Z"/>
+  </g>
+</svg>

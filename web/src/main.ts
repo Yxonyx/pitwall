@@ -1,6 +1,3 @@
-import '@fontsource/ibm-plex-mono/400.css';
-import '@fontsource/outfit/400.css';
-import '@fontsource/outfit/600.css';
 import {
   agentActivity,
   applyEvent,
@@ -31,7 +28,7 @@ if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js'
 
 function mountJoin(root: HTMLElement): void {
   const main = el('main', 'join');
-  const mark = el('div', 'mark', 'Pitwall');
+  const mark = brand();
   const title = el('h1', undefined, 'Join the room');
   const lead = el('p', undefined, 'Use the invite from the person who started Pitwall.');
   const form = el('form');
@@ -105,7 +102,7 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
   const shell = el('div', 'shell');
   shell.id = 'shell';
   const top = el('header', 'top');
-  const mark = el('div', 'mark', 'Pitwall');
+  const mark = brand();
   const who = el('div', 'who');
   who.id = 'who';
   top.append(mark, who);
@@ -128,11 +125,17 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
   hint.id = 'agent-hint';
   const body = el('textarea');
   body.id = 'composer-body';
-  body.placeholder = 'Say something, or address an agent with @name';
+  body.placeholder = 'Message or @agent';
+  body.rows = 1;
+  body.addEventListener('input', () => {
+    body.style.height = 'auto';
+    body.style.height = `${Math.min(body.scrollHeight, 140)}px`;
+  });
   body.enterKeyHint = 'send';
-  const send = el('button', 'primary', 'Send');
+  const send = el('button', 'primary', '\u2191');
   send.id = 'send';
   send.type = 'submit';
+  send.setAttribute('aria-label', 'Send');
   const formError = el('p', 'error');
   formError.id = 'form-error';
   composer.append(modes, agent, hint, body, send, formError);
@@ -193,9 +196,11 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
   pushButton.type = 'button';
   pushButton.hidden = true;
 
-  room.append(feed, composer);
-  tasks.append(filters, taskList, thread);
-  people.append(peopleList, inviteBox, note, pushButton);
+  room.append(el('h2', 'pane-title', 'Room'), feed, composer);
+  tasks.append(el('h2', 'pane-title', 'Tasks'), filters, taskList, thread);
+  const invites = el('details', 'invite');
+  invites.append(el('summary', undefined, 'Invite someone or add a machine'), inviteBox);
+  people.append(el('h2', 'pane-title', 'People'), peopleList, invites, note, pushButton);
   columns.append(room, tasks, people);
 
   const nav = el('nav', 'tabs');
@@ -267,6 +272,7 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
     const payload = { type: 'send', clientId, body: text || 'Status', mode, agentId: agent.value || null };
     if (!sendRaw(payload)) return;
     body.value = '';
+    body.style.height = '';
     window.setTimeout(() => {
       if (!view.messages.some((message) => message.clientId === clientId)) void refresh();
     }, 2000);
@@ -340,38 +346,64 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
       feed.append(el('p', 'empty', 'No messages yet. Say something, or address an agent with @name.'));
       return;
     }
-    for (const message of view.messages) feed.append(messageNode(message));
+    let before: RoomView['messages'][number] | undefined;
+    for (const message of view.messages) {
+      if (!before || day(before.createdAt) !== day(message.createdAt)) feed.append(el('div', 'day', dayLabel(message.createdAt)));
+      feed.append(messageNode(message, before));
+      before = message;
+    }
     if (nearBottom) feed.scrollTop = feed.scrollHeight;
   }
 
-  function messageNode(message: RoomView['messages'][number]): HTMLElement {
-    const card = el('article', `message ${message.senderKind} ${message.origin === 'github' ? 'mirror' : ''}`);
+  function messageNode(message: RoomView['messages'][number], before?: RoomView['messages'][number]): HTMLElement {
     const task = message.taskId ? view.tasks.find((item) => item.id === message.taskId) : undefined;
-    const meta = el(
-      'div',
-      'meta',
-      `${message.senderName}${message.origin === 'github' ? ' · GitHub' : ''} · ${when(message.createdAt)}${task ? ` · ${STATE_LABEL[task.state]}` : ''}`,
-    );
+    const system = message.senderKind === 'system';
+    const mine = message.senderKind === 'human' && message.senderId === me.id;
+    const mirror = message.origin === 'github';
+    const sameSender = Boolean(before) && before?.senderId === message.senderId && before?.senderKind === message.senderKind &&
+      day(before.createdAt) === day(message.createdAt) &&
+      Date.parse(message.createdAt) - Date.parse(before?.createdAt ?? '') < 5 * 60_000;
+    const row = el('article', `message ${message.senderKind}${mine ? ' mine' : ''}${mirror ? ' mirror' : ''}${sameSender ? ' same' : ''}`);
+    if (system) {
+      row.append(el('div', 'note-line', message.body));
+      return row;
+    }
+    if (!mine) {
+      const avatar = el('div', `avatar ${message.senderKind}`, sameSender ? '' : initials(message.senderName));
+      avatar.style.setProperty('--hue', String(hue(message.senderName)));
+      row.append(avatar);
+    }
+    const bubble = el('div', 'bubble');
+    if (!mine && !sameSender) {
+      const who = el('div', 'name', message.senderName + (mirror ? ' \u00b7 GitHub' : message.senderKind === 'agent' ? ' \u00b7 agent' : ''));
+      who.style.setProperty('--hue', String(hue(message.senderName)));
+      bubble.append(who);
+    }
     const text = el('div', 'body');
     linkify(text, message.body);
-    card.append(meta, text);
+    bubble.append(text);
     if (message.link) {
       const href = safeHttps(message.link);
       if (href) {
-        const anchor = el('a', undefined, 'Open on GitHub');
+        const anchor = el('a', 'link', 'Open on GitHub');
         anchor.href = href;
         anchor.target = '_blank';
         anchor.rel = 'noreferrer noopener';
-        card.append(anchor);
+        bubble.append(anchor);
       }
     }
     if (task) {
-      const jump = el('button', undefined, 'Open task');
-      jump.type = 'button';
-      jump.addEventListener('click', () => choose(task.id));
-      card.append(jump);
+      const chip = el('button', 'task-chip');
+      chip.type = 'button';
+      const state = el('span', 'state', STATE_LABEL[task.state]);
+      state.dataset.state = task.state;
+      chip.append(state, el('span', undefined, 'Open task'));
+      chip.addEventListener('click', () => choose(task.id));
+      bubble.append(chip);
     }
-    return card;
+    bubble.append(el('div', 'time', clock(message.createdAt)));
+    row.append(bubble);
+    return row;
   }
 
   function paintTasks(): void {
@@ -384,11 +416,9 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
     for (const task of rows) {
       const card = el('button', 'task-card');
       card.type = 'button';
-      card.append(
-        el('div', 'meta', `${task.agentName} · ${task.machineName} · ${task.mode}`),
-        el('div', 'state', STATE_LABEL[task.state]),
-        el('div', 'body', task.body),
-      );
+      const state = el('div', 'state', STATE_LABEL[task.state]);
+      state.dataset.state = task.state;
+      card.append(el('div', 'meta', `${task.agentName} · ${task.machineName} · ${task.mode}`), state, el('div', 'body', task.body));
       card.addEventListener('click', () => choose(task.id));
       taskList.append(card);
     }
@@ -425,7 +455,11 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
     threadTitle.textContent = task.body;
     threadState.textContent = `${STATE_LABEL[task.state]} · ${task.agentName} on ${task.machineName}`;
     threadMessages.replaceChildren();
-    for (const message of view.messages.filter((item) => item.taskId === task.id)) threadMessages.append(messageNode(message));
+    let previous: RoomView['messages'][number] | undefined;
+    for (const message of view.messages.filter((item) => item.taskId === task.id)) {
+      threadMessages.append(messageNode(message, previous));
+      previous = message;
+    }
     activityList.replaceChildren();
     for (const event of view.taskEvents.filter((item) => item.taskId === task.id)) {
       activityList.append(el('li', undefined, `${when(event.createdAt)} · ${STATE_LABEL[event.state]}${event.note ? ` · ${event.note}` : ''}`));
@@ -673,6 +707,39 @@ function when(iso: string): string {
   return date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+function clock(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+function day(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toDateString();
+}
+
+function dayLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const letters = words.length > 1 ? [words[0]?.[0], words[1]?.[0]] : [...(words[0] ?? '?')].slice(0, 2);
+  return letters.join('').toUpperCase();
+}
+
+/** A stable hue for a name, so one sender keeps one colour. */
+function hue(name: string): number {
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) % 360;
+  return hash;
+}
+
 function newClientId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
   const raw = btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
@@ -725,6 +792,18 @@ function navButton(id: string, label: string): HTMLButtonElement {
   button.id = id;
   button.type = 'button';
   return button;
+}
+
+/** The brand line: the mark and the name. */
+function brand(): HTMLDivElement {
+  const mark = el('div', 'mark');
+  const logo = el('img', 'logo');
+  logo.src = '/favicon.svg';
+  logo.alt = '';
+  logo.width = 22;
+  logo.height = 22;
+  mark.append(logo, el('span', undefined, 'Pitwall'));
+  return mark;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {

@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/media/mark.svg" alt="" width="72">
+
 # Pitwall
 
 **The pit wall for your coding agents.**
@@ -14,6 +16,14 @@ Talk to `@coder` from your phone. The agent runs on the computer that has the co
 [Quick start](#quick-start) · [How it works](#how-it-works) · [Honest by design](#honest-by-design) · [Setup guide](SETUP.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
+
+<p align="center">
+  <img src="docs/media/room-desktop.png" alt="The Pitwall room on a desktop: people on the left, the chat in the middle, tasks on the right" width="760">
+</p>
+
+<p align="center">
+  <img src="docs/media/room-mobile.png" alt="The Pitwall room on a phone" width="260">
+</p>
 
 ---
 
