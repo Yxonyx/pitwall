@@ -89,7 +89,7 @@ test('a bot cannot answer an agent, take an agent\'s name or put escape codes in
   expect(canAnswer('observer')).toBe(false);
   expect(canAnswer('peer')).toBe(true);
 
-  for (const name of ['coder', 'Coder', 'backend', 'Pitwall', 'system', 'co-der', 'c\u200bo\u200bder', 'ｃｏｄｅｒ', '\u0441\u043eder', 'co\u3164der', 'co\u2800der', 'co\u115fder', 'c\u03bfder']) {
+  for (const name of ['coder', 'Coder', 'backend', 'Pitwall', 'system', 'co-der', 'c\u200bo\u200bder', 'ｃｏｄｅｒ', '\u0441\u043eder', 'co\u3164der', 'co\u2800der', 'co\u115fder', 'c\u03bfder', 'co\u13a0er', 'c\u0585der']) {
     const invite = await call(server.url, '/api/invites', { kind: 'person', role: 'bot' }, ownerToken);
     const joined = await call(server.url, '/api/join', { invite: invite.json.code, kind: 'person', name });
     expect(joined.status, name).toBe(400);
@@ -102,4 +102,16 @@ test('a bot cannot answer an agent, take an agent\'s name or put escape codes in
   await call(server.url, '/api/say', { body: 'clear\u001b[2J\u001b]0;pwned\u0007 done' }, good.json.token as string);
   const line = (await messages(server.url, ownerToken)).find((message) => message.senderName === 'Helper');
   expect(line?.body).toBe('clear[2J]0;pwned done');
+});
+
+test('a name in one alphabet is fine, in any common one', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pitwall-bot-'));
+  const server: PitwallServer = await startPitwall({ dataDir: path.join(dir, 'relay'), host: '127.0.0.1', port: 0, web: null });
+  cleanup.push(() => server.close());
+  const owner = await call(server.url, '/api/join', { invite: server.room.bootstrapOwnerInvite().code, kind: 'person', name: 'Owner' });
+  for (const name of ['Zoë', 'Андрей', 'Νίκος', '田中さん', '김민수', 'Ana María 2']) {
+    const invite = await call(server.url, '/api/invites', { kind: 'person', role: 'peer' }, owner.json.token as string);
+    const joined = await call(server.url, '/api/join', { invite: invite.json.code, kind: 'person', name });
+    expect(joined.status, name).toBe(200);
+  }
 });

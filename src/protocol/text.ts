@@ -4,6 +4,19 @@ import type { Activity } from './types.js';
 const SLUG = /^[a-z][a-z0-9-]{0,30}$/;
 const CLIENT_ID = /^[A-Za-z0-9._:-]{8,80}$/;
 
+/** The alphabets a name may use, one group each (Japanese writes in three at once). A name uses one group, or none. */
+const ALPHABETS: readonly RegExp[] = [
+  /\p{Script=Latin}/u,
+  /\p{Script=Cyrillic}/u,
+  /\p{Script=Greek}/u,
+  /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}/u,
+  /\p{Script=Hangul}/u,
+  /\p{Script=Arabic}/u,
+  /\p{Script=Hebrew}/u,
+  /\p{Script=Devanagari}/u,
+  /\p{Script=Thai}/u,
+];
+
 export function cleanPersonName(input: unknown): string {
   if (typeof input !== 'string') {
     throw new ProtocolError('bad_name', 'Enter a name.');
@@ -16,8 +29,14 @@ export function cleanPersonName(input: unknown): string {
     throw new ProtocolError('bad_name', 'Use a name of 1 to 40 characters.');
   }
   // One alphabet to a name: "coder" with a Cyrillic o is a different name that looks the same.
-  const alphabets = [/\p{Script=Latin}/u, /\p{Script=Cyrillic}/u, /\p{Script=Greek}/u].filter((alphabet) => alphabet.test(name));
-  if (alphabets.length > 1) {
+  const letters = [...name].filter((char) => /\p{L}|\p{M}/u.test(char));
+  const used = new Set<number>();
+  for (const char of letters) {
+    const group = ALPHABETS.findIndex((alphabet) => alphabet.test(char));
+    if (group < 0) throw new ProtocolError('bad_name', 'Use letters from a common alphabet in a name.');
+    used.add(group);
+  }
+  if (used.size > 1) {
     throw new ProtocolError('bad_name', 'Write a name in one alphabet.');
   }
   return name;
