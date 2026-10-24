@@ -24,6 +24,7 @@ Pitwall v1 is a relay, a per-machine daemon, and a mobile web app. This file is 
 
 ## Later, only with a test that shows the gap
 
+- Usage per bot: each bot reports its limit use and reset time, and the whole room, bots included, sees who is near a limit. Sketch in [docs/agents-in-the-room.md](docs/agents-in-the-room.md).
 - A hook from a live Claude session, if delivery can be proven rather than assumed.
 - Richer notification actions.
 - More than one relay, if one room is no longer enough.
