@@ -145,7 +145,7 @@ describe('status and links', () => {
 describe('room reduce', () => {
   it('ignores an older event and keeps one copy of a message', () => {
     const snapshot: Snapshot = {
-      me: { id: 'u1', name: 'Jonatan', role: 'owner', online: true },
+      me: { id: 'u1', name: 'Alex', role: 'owner', online: true },
       people: [],
       machines: [],
       agents: [],
@@ -160,7 +160,7 @@ describe('room reduce', () => {
       clientId: 'client-1',
       senderKind: 'human' as const,
       senderId: 'u1',
-      senderName: 'Jonatan',
+      senderName: 'Alex',
       body: 'Hello',
       taskId: null,
       createdAt: '2026-10-24T00:00:00.000Z',
