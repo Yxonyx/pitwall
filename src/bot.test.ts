@@ -89,7 +89,7 @@ test('a bot cannot answer an agent, take an agent\'s name or put escape codes in
   expect(canAnswer('observer')).toBe(false);
   expect(canAnswer('peer')).toBe(true);
 
-  for (const name of ['coder', 'Coder', 'backend', 'Pitwall', 'system']) {
+  for (const name of ['coder', 'Coder', 'backend', 'Pitwall', 'system', 'co-der', 'c\u200bo\u200bder', 'ｃｏｄｅｒ', '\u0441\u043eder']) {
     const invite = await call(server.url, '/api/invites', { kind: 'person', role: 'bot' }, ownerToken);
     const joined = await call(server.url, '/api/join', { invite: invite.json.code, kind: 'person', name });
     expect(joined.status, name).toBe(400);

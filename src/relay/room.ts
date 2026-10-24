@@ -3,7 +3,7 @@ import { canAnswer, canApprove, canCancel, canInvite, canPost, canRequestWork, s
 import { parseAddress } from '../protocol/address.js';
 import { agentActivity, type Assign, type FanEvent, type Message, type Person, type Role, type SendMode, type Snapshot, type Task, type TaskState } from '../protocol/types.js';
 import { assertTransition, type MoveDetail } from '../protocol/transition.js';
-import { cleanBody, cleanClientId, cleanPersonName, cleanSlug, safeHttps, statusBoard, withinHop } from '../protocol/text.js';
+import { cleanBody, cleanClientId, cleanPersonName, cleanSlug, safeHttps, skeleton, statusBoard, withinHop } from '../protocol/text.js';
 import { newSecret, nowIso } from '../shared/ids.js';
 import type { Hub } from './hub.js';
 import { deliverPush, type PushNote, type PushSender } from './push.js';
@@ -503,10 +503,10 @@ export class Room {
 
   /** A person or a bot may not take the name of an agent, a machine or the room itself: a line from them would pass for theirs. */
   private refuseImpersonation(name: string): void {
-    const taken = name.toLowerCase();
+    const taken = skeleton(name);
     const reserved = ['pitwall', 'system', 'all'];
     const names = [...reserved, ...this.store.agents().map((agent) => agent.name), ...this.store.machines().map((machine) => machine.name)];
-    if (names.some((other) => other.toLowerCase() === taken)) {
+    if (taken === '' || names.some((other) => skeleton(other) === taken)) {
       throw new ProtocolError('bad_name', 'That name belongs to an agent, a machine or the room. Choose another.');
     }
   }

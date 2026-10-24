@@ -8,11 +8,31 @@ export function cleanPersonName(input: unknown): string {
   if (typeof input !== 'string') {
     throw new ProtocolError('bad_name', 'Enter a name.');
   }
-  const name = input.trim().replace(/\s+/g, ' ');
-  if (name.length < 1 || name.length > 40 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) {
+  // Compatibility forms (full width letters, ligatures) fold to plain ones, so one name has one spelling.
+  const name = input.normalize('NFKC').trim().replace(/\s+/g, ' ');
+  // No control characters, and no invisible formatting ones (zero width joiners, bidi marks): they make a name
+  // that looks like another one.
+  if (name.length < 1 || name.length > 40 || /[\u0000-\u001f\u007f-\u009f]|\p{Cf}/u.test(name)) {
     throw new ProtocolError('bad_name', 'Use a name of 1 to 40 characters.');
   }
   return name;
+}
+
+const LOOKALIKES: Record<string, string> = {
+  а: 'a', в: 'b', е: 'e', к: 'k', м: 'm', н: 'h', о: 'o', р: 'p', с: 'c', т: 't', у: 'y', х: 'x', і: 'i', ј: 'j', ѕ: 's',
+  α: 'a', ο: 'o', ρ: 'p', ν: 'v', τ: 't', ι: 'i', κ: 'k', χ: 'x', υ: 'u',
+};
+
+/**
+ * What a name looks like once spelling tricks are gone: compatibility forms folded, invisible characters dropped,
+ * lowercase, common Cyrillic and Greek lookalikes written as the Latin letter, and only letters and digits kept.
+ * Two names with the same skeleton can pass for each other.
+ */
+export function skeleton(name: string): string {
+  return [...name.normalize('NFKC').toLowerCase().replace(/\p{Cf}/gu, '')]
+    .map((char) => LOOKALIKES[char] ?? char)
+    .join('')
+    .replace(/[^\p{L}\p{N}]/gu, '');
 }
 
 export function cleanSlug(input: unknown, label: string): string {
