@@ -1,5 +1,5 @@
 import { ProtocolError } from '../protocol/errors.js';
-import { canApprove, canCancel, canInvite, canPost, canRequestWork, senderKindOf, workNeedsApproval } from '../protocol/acl.js';
+import { canAnswer, canApprove, canCancel, canInvite, canPost, canRequestWork, senderKindOf, workNeedsApproval } from '../protocol/acl.js';
 import { parseAddress } from '../protocol/address.js';
 import { agentActivity, type Assign, type FanEvent, type Message, type Person, type Role, type SendMode, type Snapshot, type Task, type TaskState } from '../protocol/types.js';
 import { assertTransition, type MoveDetail } from '../protocol/transition.js';
@@ -75,6 +75,7 @@ export class Room {
 
   joinPerson(code: string, nameInput: unknown): { token: string; user: Person } {
     const name = cleanPersonName(nameInput);
+    this.refuseImpersonation(name);
     const token = newSecret();
     const at = nowIso();
     const saved = this.store.transaction(() => {
@@ -291,7 +292,7 @@ export class Room {
   }
 
   answer(user: Person, taskId: string, clientIdInput: unknown, bodyInput: unknown): void {
-    if (!canPost(user.role)) throw new ProtocolError('forbidden', 'You cannot answer this.');
+    if (!canAnswer(user.role)) throw new ProtocolError('forbidden', 'You cannot answer this.');
     const clientId = cleanClientId(clientIdInput);
     const body = cleanBody(bodyInput);
     const at = nowIso();
@@ -498,6 +499,16 @@ export class Room {
   machineByToken(token: string): { id: string; name: string } | undefined {
     const machine = this.store.machineByToken(token);
     return machine ? { id: machine.id, name: machine.name } : undefined;
+  }
+
+  /** A person or a bot may not take the name of an agent, a machine or the room itself: a line from them would pass for theirs. */
+  private refuseImpersonation(name: string): void {
+    const taken = name.toLowerCase();
+    const reserved = ['pitwall', 'system', 'all'];
+    const names = [...reserved, ...this.store.agents().map((agent) => agent.name), ...this.store.machines().map((machine) => machine.name)];
+    if (names.some((other) => other.toLowerCase() === taken)) {
+      throw new ProtocolError('bad_name', 'That name belongs to an agent, a machine or the room. Choose another.');
+    }
   }
 
   private postStatus(user: Person, clientId: string, body: string, at: string): void {

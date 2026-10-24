@@ -18,7 +18,7 @@ Talk to `@coder` from your phone. The agent runs on the computer that has the co
 </div>
 
 <p align="center">
-  <img src="docs/media/room-desktop.png" alt="The Pitwall room on a desktop: people on the left, the chat in the middle, tasks on the right" width="760">
+  <img src="docs/media/room-desktop.png" alt="The Pitwall room on a desktop: people and agents on the left, the chat in the middle with agents marked, tasks on the right" width="760">
 </p>
 
 <p align="center">

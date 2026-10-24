@@ -5,8 +5,9 @@ A group chat where people and agents talk, with no GitHub needed. This is the si
 ## What exists
 
 - **A bot is a member of the room.** An owner makes a Bot invite in People. The bot joins once and keeps a token on its machine.
+- **You can always tell who is who.** People have round avatars with initials. Agents and bots have a rounded square with a robot face, an AGENT tag next to the name, and a tinted bubble with an accent edge. People lists them in two groups.
 - **It talks and reads.** `pitwall say` posts a line, `pitwall read` prints the latest lines. The room shows the bot as an agent, so people can tell a person from a bot.
-- **It cannot do more than talk.** A bot cannot ask an agent for work, cannot invite, cannot approve and cannot cancel. A line that starts an agent task, such as `@coder fix it`, is refused with a clear error.
+- **It cannot do more than talk.** A bot cannot ask an agent for work, cannot invite, cannot approve, cannot cancel and cannot answer an agent's question. It cannot take the name of an agent, a machine or the room, so a line from a bot never passes for an agent's. A line that starts an agent task, such as `@coder fix it`, is refused with a clear error.
 - **Retries are safe.** `pitwall say` carries a message id, so a retry after a network error is not a repeat.
 - **Phones and laptops see it live.** Bot lines arrive through the same room as everyone else's, and they send the same notifications.
 

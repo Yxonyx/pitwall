@@ -369,14 +369,17 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
       return row;
     }
     if (!mine) {
-      const avatar = el('div', `avatar ${message.senderKind}`, sameSender ? '' : initials(message.senderName));
+      const agent = message.senderKind === 'agent';
+      const avatar = el('div', `avatar ${message.senderKind}${sameSender ? ' ghost' : ''}`, agent || sameSender ? '' : initials(message.senderName));
       avatar.style.setProperty('--hue', String(hue(message.senderName)));
       row.append(avatar);
     }
     const bubble = el('div', 'bubble');
     if (!mine && !sameSender) {
-      const who = el('div', 'name', message.senderName + (mirror ? ' \u00b7 GitHub' : message.senderKind === 'agent' ? ' \u00b7 agent' : ''));
+      const who = el('div', 'name', message.senderName);
       who.style.setProperty('--hue', String(hue(message.senderName)));
+      if (message.senderKind === 'agent') who.append(el('span', 'tag agent', 'agent'));
+      if (mirror) who.append(el('span', 'tag', 'GitHub'));
       bubble.append(who);
     }
     const text = el('div', 'body');
@@ -426,21 +429,35 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
 
   function paintPeople(): void {
     peopleList.replaceChildren();
-    if (view.people.length === 0) peopleList.append(el('p', 'empty', 'No one else is here yet.'));
-    for (const person of view.people) {
-      const card = el('article', 'person');
-      card.append(el('div', 'meta', person.role), el('div', 'body', `${person.name} · ${person.online ? 'online' : 'offline'}`));
-      peopleList.append(card);
+    const humans = view.people.filter((person) => person.role !== 'bot');
+    const bots = view.people.filter((person) => person.role === 'bot');
+    peopleList.append(el('h3', 'group', 'People'));
+    if (humans.length === 0) peopleList.append(el('p', 'empty', 'No one else is here yet.'));
+    for (const person of humans) peopleList.append(contact(person.name, person.role, person.online, false));
+    peopleList.append(el('h3', 'group', 'Agents'));
+    if (bots.length === 0 && view.agents.length === 0) {
+      peopleList.append(el('p', 'empty', 'No agents yet. Invite a bot, or add a machine.'));
     }
-    for (const machine of view.machines) {
-      const card = el('article', 'machine');
-      const agents = view.agents.filter((item) => item.machineId === machine.id);
-      card.append(el('div', 'meta', machine.online ? 'Machine online' : 'Machine offline'), el('div', 'body', machine.name));
-      for (const item of agents) {
-        card.append(el('div', 'meta', `${item.name} · ${agentActivity(view.tasks, item.id)} · ${item.online ? 'online' : 'offline'}`));
-      }
-      peopleList.append(card);
+    for (const bot of bots) peopleList.append(contact(bot.name, 'bot, talks in the room', bot.online, true));
+    for (const item of view.agents) {
+      const line = `agent on ${item.machineName} \u00b7 ${agentActivity(view.tasks, item.id)}`;
+      peopleList.append(contact(item.name, line, item.online, true));
     }
+  }
+
+  /** One row of the contact list: an avatar, a name, a line under it and a dot for who is here. */
+  function contact(name: string, line: string, online: boolean, agent: boolean): HTMLElement {
+    const row = el('article', `person${agent ? ' is-agent' : ''}`);
+    const avatar = el('div', `avatar ${agent ? 'agent' : 'human'}`, agent ? '' : initials(name));
+    avatar.style.setProperty('--hue', String(hue(name)));
+    const text = el('div', 'who-text');
+    const title = el('div', 'body', name);
+    if (agent) title.append(el('span', 'tag agent', 'agent'));
+    text.append(title, el('div', 'meta', line));
+    const dot = el('span', `dot${online ? ' on' : ''}`);
+    dot.title = online ? 'online' : 'offline';
+    row.append(avatar, text, dot);
+    return row;
   }
 
   function paintThread(): void {

@@ -2,6 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, test } from 'vitest';
+import { canAnswer } from './protocol/acl.js';
 import type { Message, Snapshot } from './protocol/types.js';
 import { startPitwall, type PitwallServer } from './relay/server.js';
 
@@ -68,4 +69,37 @@ test('an anonymous caller cannot say anything', async () => {
   cleanup.push(() => server.close());
   const said = await call(server.url, '/api/say', { body: 'hello' });
   expect(said.status).toBe(401);
+});
+
+test('a bot cannot answer an agent, take an agent\'s name or put escape codes in the room', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'pitwall-bot-'));
+  const server: PitwallServer = await startPitwall({ dataDir: path.join(dir, 'relay'), host: '127.0.0.1', port: 0, web: null });
+  cleanup.push(() => server.close());
+  const owner = await call(server.url, '/api/join', { invite: server.room.bootstrapOwnerInvite().code, kind: 'person', name: 'Owner' });
+  const ownerToken = owner.json.token as string;
+  const machineInvite = await call(server.url, '/api/invites', { kind: 'machine' }, ownerToken);
+  await call(server.url, '/api/join', {
+    invite: machineInvite.json.code,
+    kind: 'machine',
+    name: 'backend',
+    agents: [{ name: 'coder', runtime: 'echo' }],
+  });
+
+  expect(canAnswer('bot')).toBe(false);
+  expect(canAnswer('observer')).toBe(false);
+  expect(canAnswer('peer')).toBe(true);
+
+  for (const name of ['coder', 'Coder', 'backend', 'Pitwall', 'system']) {
+    const invite = await call(server.url, '/api/invites', { kind: 'person', role: 'bot' }, ownerToken);
+    const joined = await call(server.url, '/api/join', { invite: invite.json.code, kind: 'person', name });
+    expect(joined.status, name).toBe(400);
+  }
+  const invite = await call(server.url, '/api/invites', { kind: 'person', role: 'bot' }, ownerToken);
+  const escape = await call(server.url, '/api/join', { invite: invite.json.code, kind: 'person', name: 'Bad\u009b[2Jname' });
+  expect(escape.status).toBe(400);
+
+  const good = await call(server.url, '/api/join', { invite: invite.json.code, kind: 'person', name: 'Helper' });
+  await call(server.url, '/api/say', { body: 'clear\u001b[2J\u001b]0;pwned\u0007 done' }, good.json.token as string);
+  const line = (await messages(server.url, ownerToken)).find((message) => message.senderName === 'Helper');
+  expect(line?.body).toBe('clear[2J]0;pwned done');
 });

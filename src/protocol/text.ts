@@ -9,7 +9,7 @@ export function cleanPersonName(input: unknown): string {
     throw new ProtocolError('bad_name', 'Enter a name.');
   }
   const name = input.trim().replace(/\s+/g, ' ');
-  if (name.length < 1 || name.length > 40 || /[\u0000-\u001f]/.test(name)) {
+  if (name.length < 1 || name.length > 40 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) {
     throw new ProtocolError('bad_name', 'Use a name of 1 to 40 characters.');
   }
   return name;
@@ -26,7 +26,8 @@ export function cleanBody(input: unknown, allowEmpty = false): string {
   if (typeof input !== 'string') {
     throw new ProtocolError('bad_message', 'The message is missing.');
   }
-  const body = input.replace(/\u0000/g, '').trim();
+  // Control characters, escape included, never belong in a chat line: a terminal would act on them. Newline and tab stay.
+  const body = input.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '').trim();
   if (!allowEmpty && body.length === 0) {
     throw new ProtocolError('bad_message', 'Write a message first.');
   }

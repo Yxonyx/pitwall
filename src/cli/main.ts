@@ -110,8 +110,13 @@ async function read(command: Extract<Command, { kind: 'read' }>): Promise<void> 
   if (!response.ok || !body.messages) throw new Error(body.error || 'The room did not answer.');
   for (const message of body.messages.slice(-command.limit)) {
     const time = new Date(message.createdAt).toISOString().slice(11, 16);
-    console.log(`${time} ${message.senderName}: ${message.body.replace(/\s+/g, ' ')}`);
+    console.log(`${time} ${plain(message.senderName)}: ${plain(message.body)}`);
   }
+}
+
+/** Text from the room as one safe line: no control characters for a terminal to act on. */
+function plain(text: string): string {
+  return text.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').trim();
 }
 
 function memberKey(name: string): string {

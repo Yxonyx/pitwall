@@ -9,6 +9,11 @@ export function senderKindOf(role: Role): 'human' | 'agent' {
   return role === 'bot' ? 'agent' : 'human';
 }
 
+/** Answering a question resumes an agent's task, so a bot cannot do it: only people steer agents. */
+export function canAnswer(role: Role): boolean {
+  return role === 'owner' || role === 'peer';
+}
+
 export function canRequestWork(role: Role): boolean {
   return role === 'owner' || role === 'peer';
 }
