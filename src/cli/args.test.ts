@@ -1,13 +1,13 @@
 import { describe, expect, test } from 'vitest';
 import { parseArgs, UsageError } from './args.js';
 
-const env = { home: '/Users/ada', cwd: '/work/raj' };
+const env = { home: '/Users/ada', cwd: '/work/pitwall' };
 
 describe('parseArgs', () => {
   test('defaults the relay to this machine only', () => {
     expect(parseArgs(['relay', 'start'], env)).toEqual({
       kind: 'relay-start',
-      dataDir: '/work/raj/data',
+      dataDir: '/work/pitwall/data',
       host: '127.0.0.1',
       port: 8787,
     });
@@ -27,7 +27,7 @@ describe('parseArgs', () => {
       agents: ['coder', 'review'],
       runner: 'echo',
       allowWork: true,
-      home: '/Users/ada/.raj',
+      home: '/Users/ada/.pitwall',
     });
   });
 
@@ -36,7 +36,7 @@ describe('parseArgs', () => {
       UsageError,
     );
     const command = parseArgs(
-      ['daemon', 'join', 'https://raj.example', 'join_abc', '--name', 'backend', '--agent', 'coder', '--runner', 'claude', '--project', '/src/app', '--no-work'],
+      ['daemon', 'join', 'https://pitwall.example', 'join_abc', '--name', 'backend', '--agent', 'coder', '--runner', 'claude', '--project', '/src/app', '--no-work'],
       env,
     );
     expect(command).toMatchObject({ runner: 'claude', project: '/src/app', allowWork: false });

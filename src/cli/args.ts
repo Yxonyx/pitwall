@@ -36,7 +36,7 @@ export function parseArgs(argv: string[], env: { home?: string; cwd?: string } =
   const cwd = env.cwd ?? process.cwd();
   if (argv.length === 0 || argv[0] === 'help' || argv[0] === '--help' || argv[0] === '-h') return { kind: 'help' };
   const [group, action, ...rest] = argv;
-  if (!group || !action) throw new UsageError('Unknown command. Run raj --help.');
+  if (!group || !action) throw new UsageError('Unknown command. Run pitwall --help.');
   if (group === 'relay' && action === 'init') {
     const { flags } = tokenize(rest, ['data'], []);
     return { kind: 'relay-init', dataDir: resolveDir(cwd, one(flags, 'data') ?? 'data') };
@@ -57,7 +57,7 @@ export function parseArgs(argv: string[], env: { home?: string; cwd?: string } =
   if (group === 'relay' && action === 'radio') {
     const { positionals, flags } = tokenize(rest, ['data'], []);
     const repo = positionals[0];
-    if (!repo || positionals.length !== 1) throw new UsageError('Usage: raj relay radio owner/name');
+    if (!repo || positionals.length !== 1) throw new UsageError('Usage: pitwall relay radio owner/name');
     return { kind: 'relay-radio', dataDir: resolveDir(cwd, one(flags, 'data') ?? 'data'), repo };
   }
   if (group === 'daemon' && action === 'join') {
@@ -65,7 +65,7 @@ export function parseArgs(argv: string[], env: { home?: string; cwd?: string } =
     const url = positionals[0];
     const invite = positionals[1];
     if (!url || !invite || positionals.length !== 2) {
-      throw new UsageError('Usage: raj daemon join <url> <invite> --name <machine> --agent <agent>');
+      throw new UsageError('Usage: pitwall daemon join <url> <invite> --name <machine> --agent <agent>');
     }
     let parsed: URL;
     try {
@@ -106,30 +106,30 @@ export function parseArgs(argv: string[], env: { home?: string; cwd?: string } =
   }
   if (group === 'daemon' && action === 'start') {
     const { positionals, flags } = tokenize(rest, ['name', 'home'], []);
-    if (positionals.length > 0) throw new UsageError('Usage: raj daemon start --name <machine>');
+    if (positionals.length > 0) throw new UsageError('Usage: pitwall daemon start --name <machine>');
     return {
       kind: 'daemon-start',
       name: one(flags, 'name'),
       home: homePath(one(flags, 'home'), homeDir),
     };
   }
-  throw new UsageError('Unknown command. Run raj --help.');
+  throw new UsageError('Unknown command. Run pitwall --help.');
 }
 
 export function helpText(): string {
   return [
-    'Raj is a shared room for people and the coding agents on their machines.',
+    'Pitwall is a shared room for people and the coding agents on their machines.',
     '',
     'Relay',
-    '  raj relay init [--data dir]',
-    '  raj relay start [--data dir] [--host 127.0.0.1] [--port 8787]',
-    '  raj relay recover [--data dir]',
-    '  raj relay radio owner/name [--data dir]',
+    '  pitwall relay init [--data dir]',
+    '  pitwall relay start [--data dir] [--host 127.0.0.1] [--port 8787]',
+    '  pitwall relay recover [--data dir]',
+    '  pitwall relay radio owner/name [--data dir]',
     '',
     'Daemon, on each machine that runs an agent',
-    '  raj daemon join <url> <invite> --name <machine> --agent <agent> [--agent <agent>]',
+    '  pitwall daemon join <url> <invite> --name <machine> --agent <agent> [--agent <agent>]',
     '      [--runner echo|claude] [--project dir] [--no-work] [--home dir]',
-    '  raj daemon start [--name <machine>] [--home dir]',
+    '  pitwall daemon start [--name <machine>] [--home dir]',
     '',
     'The default runner is echo. It changes nothing. Claude edits files only after an owner approves work.',
   ].join('\n');
@@ -175,7 +175,7 @@ function one(flags: Map<string, string[]>, name: string): string | undefined {
 }
 
 function homePath(value: string | undefined, homeDir: string): string {
-  if (!value) return path.join(homeDir, '.raj');
+  if (!value) return path.join(homeDir, '.pitwall');
   if (value.startsWith('~')) return path.resolve(os.homedir(), value.slice(1).replace(/^\//, ''));
   return path.resolve(value);
 }

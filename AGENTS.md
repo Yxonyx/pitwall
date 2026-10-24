@@ -1,6 +1,6 @@
 # Agents
 
-Raj is the product in this repository. Issues, pull requests, commits, and this file are in English.
+Pitwall is the product in this repository. Issues, pull requests, commits, and this file are in English.
 
 You are editing the room itself, not using the room to edit some other project. GitHub is where the change is reviewed. Do not invent a second command channel.
 
@@ -19,7 +19,7 @@ If you changed the web app, open the relay and use the room: join, send a messag
 
 ## Rules that are easy to break
 
-- Do not commit `data/`, `~/.raj`, invite files, or research notes.
+- Do not commit `data/`, `~/.pitwall`, invite files, or research notes.
 - Do not log tokens. Do not put them in URLs.
 - Do not add `--dangerously-skip-permissions` or `bypassPermissions`.
 - A task is done only when the daemon reports completed with a result. Idle is not done.

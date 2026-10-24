@@ -18,10 +18,10 @@ import {
 } from '../../src/protocol/index.js';
 import './style.css';
 
-const TOKEN_KEY = 'raj.token';
+const TOKEN_KEY = 'pitwall.token';
 
 const app = document.querySelector('#app');
-if (!(app instanceof HTMLElement)) throw new Error('Raj has nowhere to render.');
+if (!(app instanceof HTMLElement)) throw new Error('Pitwall has nowhere to render.');
 
 const token = localStorage.getItem(TOKEN_KEY);
 if (!token) mountJoin(app);
@@ -31,9 +31,9 @@ if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js'
 
 function mountJoin(root: HTMLElement): void {
   const main = el('main', 'join');
-  const mark = el('div', 'mark', 'Raj');
+  const mark = el('div', 'mark', 'Pitwall');
   const title = el('h1', undefined, 'Join the room');
-  const lead = el('p', undefined, 'Use the invite from the person who started Raj.');
+  const lead = el('p', undefined, 'Use the invite from the person who started Pitwall.');
   const form = el('form');
   form.id = 'join-form';
   const name = field('Name', 'join-name');
@@ -105,7 +105,7 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
   const shell = el('div', 'shell');
   shell.id = 'shell';
   const top = el('header', 'top');
-  const mark = el('div', 'mark', 'Raj');
+  const mark = el('div', 'mark', 'Pitwall');
   const who = el('div', 'who');
   who.id = 'who';
   top.append(mark, who);
@@ -186,7 +186,7 @@ function mountRoom(root: HTMLElement, session: string, snapshot: Snapshot): void
   const note = el(
     'p',
     'note',
-    'Notifications on iPhone need Raj on the Home Screen and an HTTPS address. The room still works in the browser over HTTP while it is open.',
+    'Notifications on iPhone need Pitwall on the Home Screen and an HTTPS address. The room still works in the browser over HTTP while it is open.',
   );
   const pushButton = el('button', undefined, 'Enable notifications');
   pushButton.id = 'enable-push';
@@ -579,7 +579,7 @@ function mountInvites(box: HTMLElement, session: string, formError: HTMLElement)
     void createInvite(session, { kind: 'machine' }, formError).then((invite) => {
       if (!invite?.code) return;
       const command = [
-        'raj daemon join',
+        'pitwall daemon join',
         location.origin,
         invite.code,
         '--name',
@@ -619,7 +619,7 @@ async function createInvite(session: string, body: Record<string, string>, formE
 
 async function enablePush(session: string): Promise<void> {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) {
-    throw new Error('This browser cannot show Raj notifications.');
+    throw new Error('This browser cannot show Pitwall notifications.');
   }
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('Notifications stay off until you allow them.');

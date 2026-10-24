@@ -1,5 +1,5 @@
 {
-  "name": "raj",
+  "name": "pitwall",
   "version": "0.1.0",
   "private": false,
   "description": "A shared room for people and the coding agents on their machines.",
@@ -10,7 +10,7 @@
   },
   "packageManager": "pnpm@10.15.0",
   "bin": {
-    "raj": "./dist/cli/main.js"
+    "pitwall": "./dist/cli/main.js"
   },
   "scripts": {
     "dev": "tsx src/cli/main.ts relay start",

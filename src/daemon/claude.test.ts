@@ -32,7 +32,7 @@ describe('claude runner arguments', () => {
       isError: false,
     });
     const question = outcomeFromClaude({
-      text: 'I looked.\nRAJ_NEEDS_INPUT: Which file?',
+      text: 'I looked.\nPITWALL_NEEDS_INPUT: Which file?',
       sessionId: 'sess_9',
       isError: false,
     });

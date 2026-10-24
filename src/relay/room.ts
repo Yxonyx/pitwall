@@ -84,8 +84,8 @@ export class Room {
       const message = this.store.insertMessage({
         clientId: null,
         senderKind: 'system',
-        senderId: 'raj',
-        senderName: 'Raj',
+        senderId: 'pitwall',
+        senderName: 'Pitwall',
         body: `${name} joined.`,
         taskId: null,
         origin: 'room',
@@ -121,8 +121,8 @@ export class Room {
       const message = this.store.insertMessage({
         clientId: null,
         senderKind: 'system',
-        senderId: 'raj',
-        senderName: 'Raj',
+        senderId: 'pitwall',
+        senderName: 'Pitwall',
         body: `${name} is in the room with ${agents.map((agent) => agent.name).join(', ')}.`,
         taskId: null,
         origin: 'room',
@@ -521,8 +521,8 @@ export class Room {
       const board = this.store.insertMessage({
         clientId: null,
         senderKind: 'system',
-        senderId: 'raj',
-        senderName: 'Raj',
+        senderId: 'pitwall',
+        senderName: 'Pitwall',
         body: statusBoard(agents, body === 'Status' ? undefined : body),
         taskId: null,
         origin: 'room',

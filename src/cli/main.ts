@@ -12,7 +12,7 @@ import { Hub } from '../relay/hub.js';
 import { webPushSender } from '../relay/push.js';
 import { assertRepo } from '../relay/radio.js';
 import { Room } from '../relay/room.js';
-import { startRaj } from '../relay/server.js';
+import { startPitwall } from '../relay/server.js';
 import { Store } from '../relay/store.js';
 import { helpText, parseArgs, UsageError, type Command } from './args.js';
 
@@ -58,11 +58,11 @@ export async function main(argv: string[]): Promise<void> {
 async function initRelay(dataDir: string): Promise<void> {
   await createConfig(dataDir);
   const invite = mintOwner(dataDir);
-  console.log('Raj is initialized.');
+  console.log('Pitwall is initialized.');
   console.log(`Owner invite, valid until ${invite.expiresAt}:`);
   console.log(invite.code);
   console.log('Give this to the first person once. It is also in data/owner-invite.txt on this machine.');
-  console.log('Next: raj relay start');
+  console.log('Next: pitwall relay start');
 }
 
 function recoverRelay(dataDir: string): void {
@@ -93,7 +93,7 @@ function setRadio(dataDir: string, repo: string): void {
 
 async function startRelay(dataDir: string, host: string, port: number): Promise<void> {
   const config = readConfig(dataDir);
-  const server = await startRaj({
+  const server = await startPitwall({
     dataDir,
     host,
     port,
@@ -103,13 +103,13 @@ async function startRelay(dataDir: string, host: string, port: number): Promise<
     gh: config.radioRepo ? ghRunner : undefined,
   });
   const shown = host === '0.0.0.0' ? `http://127.0.0.1:${server.port}` : server.url;
-  console.log(`Raj is on ${shown}`);
+  console.log(`Pitwall is on ${shown}`);
   if (host === '127.0.0.1' || host === 'localhost') {
-    console.log('This address is only this computer. For a phone on the same network: raj relay start --host 0.0.0.0');
+    console.log('This address is only this computer. For a phone on the same network: pitwall relay start --host 0.0.0.0');
   } else {
     for (const address of lanAddresses()) console.log(`On this network: http://${address}:${server.port}`);
   }
-  console.log('iPhone notifications need Raj on the Home Screen and an HTTPS address. The room itself works over HTTP while it is open.');
+  console.log('iPhone notifications need Pitwall on the Home Screen and an HTTPS address. The room itself works over HTTP while it is open.');
   if (server.store.userCount() === 0) {
     const file = path.join(dataDir, 'owner-invite.txt');
     if (existsSync(file)) {
@@ -146,7 +146,7 @@ async function joinDaemon(command: Extract<Command, { kind: 'daemon-join' }>): P
   const dir = daemonDir(command.home);
   const file = path.join(dir, `${command.name}.json`);
   if (existsSync(file)) {
-    throw new Error(`A daemon named ${command.name} is already configured. Run: raj daemon start --name ${command.name}`);
+    throw new Error(`A daemon named ${command.name} is already configured. Run: pitwall daemon start --name ${command.name}`);
   }
   const response = await fetch(new URL('/api/join', command.url), {
     method: 'POST',
@@ -209,12 +209,12 @@ function loadDaemon(home: string, name: string | undefined): DaemonFile {
   if (!name) {
     const files = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.json')) : [];
     if (files.length === 1) name = files[0]?.replace(/\.json$/, '');
-    else if (files.length === 0) throw new Error('No daemon is configured. Run raj daemon join.');
+    else if (files.length === 0) throw new Error('No daemon is configured. Run pitwall daemon join.');
     else throw new Error(`Name the daemon: ${files.map((file) => file.replace(/\.json$/, '')).join(', ')}`);
   }
   if (!name) throw new Error('Name the daemon with --name.');
   const file = path.join(dir, `${name}.json`);
-  if (!existsSync(file)) throw new Error(`No daemon named ${name}. Run raj daemon join.`);
+  if (!existsSync(file)) throw new Error(`No daemon named ${name}. Run pitwall daemon join.`);
   const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<DaemonFile>;
   if (typeof parsed.url !== 'string' || typeof parsed.token !== 'string' || !Array.isArray(parsed.agents)) {
     throw new Error('The daemon config is incomplete. Join the room again with a new machine name.');
@@ -263,7 +263,7 @@ function ghRunner(args: string[]): Promise<string> {
 const entry = process.argv[1] ? path.resolve(process.argv[1]) : '';
 if (entry && entry === fileURLToPath(import.meta.url)) {
   main(process.argv.slice(2)).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'Raj failed.';
+    const message = error instanceof Error ? error.message : 'Pitwall failed.';
     console.error(error instanceof UsageError ? message : message);
     process.exitCode = error instanceof UsageError ? 2 : 1;
   });

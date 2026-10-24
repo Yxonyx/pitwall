@@ -1,6 +1,6 @@
 ---
 name: Bug
-about: Something Raj did that it should not have done
+about: Something Pitwall did that it should not have done
 title: ""
 labels: bug
 ---

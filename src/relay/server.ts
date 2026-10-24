@@ -23,7 +23,7 @@ const TYPES: Record<string, string> = {
   '.ico': 'image/x-icon',
 };
 
-export interface RajServer {
+export interface PitwallServer {
   url: string;
   port: number;
   room: Room;
@@ -35,7 +35,7 @@ export function webRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../dist/web');
 }
 
-export async function startRaj(options: {
+export async function startPitwall(options: {
   dataDir: string;
   host?: string;
   port?: number;
@@ -44,7 +44,7 @@ export async function startRaj(options: {
   radioRepo?: string | null;
   gh?: (args: string[]) => Promise<string>;
   web?: string | null;
-}): Promise<RajServer> {
+}): Promise<PitwallServer> {
   const store = Store.open(options.dataDir);
   const hub = new Hub();
   const room = new Room(store, hub, options.push === undefined ? null : options.push);
@@ -97,7 +97,7 @@ export async function startRaj(options: {
   const host = options.host ?? '127.0.0.1';
   await new Promise<void>((resolve) => server.listen(options.port ?? 0, host, () => resolve()));
   const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('Raj could not listen.');
+  if (!address || typeof address === 'string') throw new Error('Pitwall could not listen.');
 
   return {
     url: `http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${address.port}`,

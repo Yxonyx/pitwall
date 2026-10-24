@@ -1,7 +1,7 @@
 node_modules/
 dist/
 data/
-.raj/
+.pitwall/
 coverage/
 *.log
 .DS_Store

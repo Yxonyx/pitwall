@@ -33,6 +33,6 @@ test('comments keep an id, a body, and an author', () => {
 });
 
 test('a radio repo is owner/name', () => {
-  expect(assertRepo('Yxonyx/raj')).toEqual({ owner: 'Yxonyx', name: 'raj' });
+  expect(assertRepo('Yxonyx/pitwall')).toEqual({ owner: 'Yxonyx', name: 'pitwall' });
   expect(() => assertRepo('not a repo')).toThrow(/owner\/name/);
 });

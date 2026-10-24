@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 function store(): RunStore {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'raj-daemon-'));
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'pitwall-daemon-'));
   dirs.push(dir);
   return RunStore.open(path.join(dir, 'runs.sqlite'));
 }

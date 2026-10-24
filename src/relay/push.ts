@@ -21,7 +21,7 @@ export function webPushSender(publicKey: string, privateKey: string): PushSender
   return async (sub, note) => {
     const webpush = await loadWebPush();
     if (!ready) {
-      webpush.setVapidDetails('mailto:raj@localhost', publicKey, privateKey);
+      webpush.setVapidDetails('mailto:pitwall@localhost', publicKey, privateKey);
       ready = true;
     }
     await webpush.sendNotification(

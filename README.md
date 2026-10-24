@@ -1,55 +1,120 @@
-# Raj
+<div align="center">
 
-Raj is a shared room for people and the coding agents on their machines.
+# Pitwall
 
-A person talks in the room. A small daemon on a computer runs the named agent and reports an honest state. GitHub stays the place for pull requests, review, and evidence. Raj is the live room, and the delivery of a task to the machine that can do it.
+**The pit wall for your coding agents.**
 
-The phone surface is a web app. Add it to the Home Screen. It is not a native iOS app, because a free Apple developer account expires those in seven days.
+Talk to `@coder` from your phone. The agent runs on the computer that has the code, and tells you the truth about what happened.
 
-## What v1 does
+[![CI](https://github.com/Yxonyx/pitwall/actions/workflows/ci.yml/badge.svg)](https://github.com/Yxonyx/pitwall/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node 24](https://img.shields.io/badge/node-24-339933.svg)](.nvmrc)
+[![No dependencies on a cloud](https://img.shields.io/badge/runs-on%20your%20machines-black.svg)](docs/architecture.md)
 
-- One relay holds the room. Each machine runs a daemon that connects out. The daemon does not open a public port.
-- People, machines, agents, tasks, and messages are separate.
-- Address an agent as `@name` when the name is unique, or `@machine/agent`.
-- Say, with no agent, is a human message. Say, with an agent, is a talk task and does not edit files.
-- Work is a task that may edit. A peer's work waits for an owner. An owner's work starts. An agent cannot approve. The word "yes" in chat is not approval.
-- States are queued, delivered, accepted, running, needs input, needs approval, completed, failed, cancelled, and uncertain. Completed requires a result. A crash between claim and a result becomes uncertain and is not started again.
-- Delivery is at least once. The daemon dedups with a local row.
-- The default runner is echo. It changes nothing. Claude is optional: talk uses plan mode, approved work uses accept-edits. Unattended shell prompts fail the task.
-- An optional read-only mirror can copy the newest open GitHub issue labelled `radio` into the room. Those messages never become tasks. It is off until you set it.
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Honest by design](#honest-by-design) · [Setup guide](SETUP.md) · [Contributing](CONTRIBUTING.md)
 
-## What v1 does not do
+</div>
 
-- It does not type into a live Claude Code window, a Channels plugin, or the Claude app on a phone.
-- It does not address subagents. The daemon owns the worker.
-- It does not promise that a shell command runs exactly once.
-- It does not send Telegram or WhatsApp messages.
-- `@all` and Status do not wake agents or create tasks. They post a board.
-- Agents do not create tasks, and they cannot approve work.
-- Observers cannot post.
-- iPhone notifications work only after Add to Home Screen, and only on HTTPS. Self-signed certificates are not worth setting up. The room itself still works over HTTP while the page is open.
-- A stopped or idle agent is not done.
+---
 
-## Run it
+## Why Pitwall
 
-Node 24. From this repo:
+In motor racing the car is on the track and the team is on the pit wall: watching, talking by radio, deciding. Pitwall is that for coding agents. The agents work on your machines. You and your team stay in one room, on any device, and always know the true state of the work.
+
+Coding agents live in terminals. People live in phones and chat. Between them there is usually a gap: you ask for something, close the laptop, and an hour later you cannot tell whether the agent finished, failed, or is waiting for you.
+
+Pitwall closes that gap with three small parts:
+
+- A **room** you open in any browser, including your phone's Home Screen. People and agents talk there.
+- A **daemon** on each computer. It connects out to the room, runs the named agent, and reports a state you can trust.
+- **GitHub stays where it is.** Pull requests, review and evidence still live there. Pitwall is only the live room and the delivery of a task to the machine that can do it.
+
+It is a relay you run yourself. There is no hosted Pitwall, no account and no telemetry.
+
+## Quick start
+
+You need Node 24.
 
 ```bash
+git clone https://github.com/Yxonyx/pitwall.git && cd pitwall
 corepack pnpm install
 corepack pnpm build
-node dist/cli/main.js relay init
-node dist/cli/main.js relay start
+
+node dist/cli/main.js relay init     # prints your owner invite
+node dist/cli/main.js relay start    # prints the address
 ```
 
-Open the printed address, join with the owner invite, then invite a machine from People. On that computer:
+Open the address, join with the owner invite, then open **People** and invite a machine. On the computer that should do the work:
 
 ```bash
 node dist/cli/main.js daemon join http://127.0.0.1:8787 <invite> --name backend --agent coder
 ```
 
-The daemon keeps running until Ctrl-C. Say `@coder hello` in the room. Echo finishes the task and changes nothing.
+Back in the room, say `@coder hello`. The default runner is `echo`: it answers and changes nothing, so you can try everything safely first.
 
-For a phone on the same network, restart with `--host 0.0.0.0`. For a friend on another network, put the relay on an address both of you can reach, such as Tailscale. See [SETUP.md](SETUP.md).
+For a phone on the same network, start the relay with `--host 0.0.0.0`. For a friend on another network, put the relay on an address you can both reach, such as Tailscale. The full walkthrough, including iPhone notifications and the Claude runner, is in [SETUP.md](SETUP.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+    P["Phone or laptop<br/>(web app)"] <-->|WebSocket| R["Relay<br/>room, tasks, invites"]
+    D1["Daemon on machine A<br/>agent: coder"] -->|outbound only| R
+    D2["Daemon on machine B<br/>agent: reviewer"] -->|outbound only| R
+    R -. optional, read only .-> G["GitHub issue<br/>labelled radio"]
+```
+
+- One **relay** holds the room in SQLite. Each machine runs a **daemon** that connects out, so no machine opens a public port.
+- People, machines, agents, tasks and messages are separate things with separate ids.
+- Address an agent as `@name` when the name is unique, or `@machine/agent`.
+- **Say** with no agent is a message to people. **Say** with an agent is a *talk* task and never edits files.
+- **Work** is a task that may edit files. An owner's work starts at once. A peer's work waits for an owner to press Approve.
+
+## Honest by design
+
+Most tools say "done" when an agent goes quiet. Pitwall does not.
+
+| Rule | What it means |
+| --- | --- |
+| States are real | queued, delivered, accepted, running, needs input, needs approval, completed, failed, cancelled, uncertain |
+| Completed needs a result | An idle or stopped agent is not done |
+| A crash is uncertain | If a daemon dies between claiming a task and saving a result, the task is reported as uncertain and is not started again |
+| Delivery is at least once | The daemon keeps a local row, so the same task never runs twice |
+| Only an owner approves | An agent cannot approve, and the word "yes" in chat is not approval |
+| No permission bypass | Claude runs in plan mode for talk and accept-edits for approved work, never with `--dangerously-skip-permissions`. An unattended shell prompt fails the task |
+| Tokens stay private | Stored as SHA-256 hashes, sent in the first WebSocket message, never in a URL or a log |
+
+## Alongside your GitHub workflow
+
+If your team already coordinates through a GitHub issue, Pitwall can mirror it into the room, read only:
+
+```bash
+node dist/cli/main.js relay radio owner/name
+node dist/cli/main.js relay start
+```
+
+Pitwall reads the newest open issue labelled `radio` and copies its latest 20 comments into the room as messages. They never become tasks, and Pitwall never comments back, claims or merges. It is off until you set it.
+
+## What Pitwall does not do
+
+- It does not type into a live Claude Code window or the Claude phone app. The daemon starts its own worker.
+- It does not address subagents inside a session.
+- It does not promise that a shell command runs exactly once.
+- It is not a native iOS app: a free Apple developer account expires those in seven days. Add the web app to your Home Screen instead. iPhone notifications need the Home Screen and HTTPS.
+- It has no Telegram or WhatsApp bridge, no federation and no hosted version.
+
+See [PLAN.md](PLAN.md) for the scope of this version and what comes later.
+
+## Project layout
+
+```text
+src/protocol   pure rules shared by server and browser: ids, states, approval
+src/relay      the room: WebSocket server, SQLite store, push, radio mirror
+src/daemon     the per machine worker: echo and Claude runners, local dedup
+src/cli        the pitwall command
+web            the mobile first web app, plain TypeScript and the DOM
+docs           architecture, engineering rules, decisions
+```
 
 ## Development
 
@@ -60,4 +125,8 @@ corepack pnpm build
 corepack pnpm guard
 ```
 
-The license is MIT.
+The end to end test starts a real relay on a free port and uses a real WebSocket. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+## License
+
+[MIT](LICENSE)

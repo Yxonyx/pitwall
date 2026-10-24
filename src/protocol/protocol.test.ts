@@ -125,7 +125,7 @@ describe('status and links', () => {
   });
 
   it('accepts https links and rejects other schemes', () => {
-    expect(safeHttps('https://github.com/Yxonyx/raj/pull/1.')).toBe('https://github.com/Yxonyx/raj/pull/1');
+    expect(safeHttps('https://github.com/Yxonyx/pitwall/pull/1.')).toBe('https://github.com/Yxonyx/pitwall/pull/1');
     expect(safeHttps('http://example.com')).toBeNull();
     expect(safeHttps('javascript:alert(1)')).toBeNull();
   });

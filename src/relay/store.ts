@@ -179,7 +179,7 @@ export class Store {
 
   static open(dataDir: string): Store {
     mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-    const db = new DatabaseSync(path.join(dataDir, 'raj.sqlite'));
+    const db = new DatabaseSync(path.join(dataDir, 'pitwall.sqlite'));
     db.exec('pragma journal_mode = WAL');
     db.exec('pragma busy_timeout = 5000');
     db.exec('pragma foreign_keys = ON');

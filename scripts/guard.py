@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP_DIRS = {".git", "node_modules", "dist", "data", "research_notes", "reports", "coverage", ".raj"}
+SKIP_DIRS = {".git", "node_modules", "dist", "data", "research_notes", "reports", "coverage", ".pitwall"}
 SKIP_FILES = {"BESZELGETES.md"}
 TEXT = {".ts", ".tsx", ".js", ".mjs", ".cjs", ".css", ".html", ".md", ".yml", ".yaml", ".json", ".py", ".webmanifest"}
 SECRET = re.compile(

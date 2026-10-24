@@ -8,7 +8,7 @@ import { RunStore } from './daemon/local.js';
 import { echoRunner } from './daemon/runners.js';
 import { applyEvent, applyPresence, applySnapshot, type FanEvent, type RoomView, type Snapshot } from './protocol/index.js';
 import type { Person } from './protocol/types.js';
-import { startRaj, type RajServer } from './relay/server.js';
+import { startPitwall, type PitwallServer } from './relay/server.js';
 
 const cleanup: Array<() => Promise<void>> = [];
 
@@ -21,7 +21,7 @@ function clientId(tag: string): string {
 }
 
 async function tempDir(): Promise<string> {
-  return mkdtemp(path.join(os.tmpdir(), 'raj-e2e-'));
+  return mkdtemp(path.join(os.tmpdir(), 'pitwall-e2e-'));
 }
 
 class PersonClient {
@@ -102,7 +102,7 @@ async function waitFor(check: () => boolean, label: string): Promise<void> {
 test('two people, one echo daemon, approval, dedup, and a radio mirror', async () => {
   const dir = await tempDir();
   const runsFile = path.join(dir, 'runs.sqlite');
-  const server: RajServer = await startRaj({ dataDir: path.join(dir, 'relay'), host: '127.0.0.1', port: 0, web: null });
+  const server: PitwallServer = await startPitwall({ dataDir: path.join(dir, 'relay'), host: '127.0.0.1', port: 0, web: null });
   const loops: AbortController[] = [];
   cleanup.push(async () => {
     for (const loop of loops) loop.abort();

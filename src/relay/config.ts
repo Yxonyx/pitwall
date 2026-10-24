@@ -16,7 +16,7 @@ export async function createConfig(dataDir: string): Promise<RelayConfig> {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   chmodSync(dataDir, 0o700);
   const file = configPath(dataDir);
-  if (existsSync(file)) throw new Error('Raj is already initialized in this folder.');
+  if (existsSync(file)) throw new Error('Pitwall is already initialized in this folder.');
   const keys = await vapidKeys();
   const config: RelayConfig = {
     vapidPublicKey: keys.publicKey,
@@ -29,10 +29,10 @@ export async function createConfig(dataDir: string): Promise<RelayConfig> {
 
 export function readConfig(dataDir: string): RelayConfig {
   const file = configPath(dataDir);
-  if (!existsSync(file)) throw new Error('Run raj relay init first.');
+  if (!existsSync(file)) throw new Error('Run pitwall relay init first.');
   const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<RelayConfig>;
   if (typeof parsed.vapidPublicKey !== 'string' || typeof parsed.vapidPrivateKey !== 'string') {
-    throw new Error('The relay config is missing its push keys. Run raj relay init in a fresh folder.');
+    throw new Error('The relay config is missing its push keys. Run pitwall relay init in a fresh folder.');
   }
   return {
     vapidPublicKey: parsed.vapidPublicKey,

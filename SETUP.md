@@ -50,15 +50,15 @@ node dist/cli/main.js daemon join http://192.168.1.20:8787 <invite> \
 Claude, only if the `claude` command is installed and you want it to edit an approved project:
 
 ```bash
-node dist/cli/main.js daemon join https://raj.example <invite> \
+node dist/cli/main.js daemon join https://pitwall.example <invite> \
   --name backend --agent coder --runner claude --project ~/src/app
 ```
 
-Talk uses `claude --print` with `--permission-mode plan`. Approved work uses `--permission-mode acceptEdits`. Raj does not pass `--dangerously-skip-permissions`. If Claude asks for a shell prompt that nobody is there to answer, the task fails. A missing `claude` binary fails the task with a clear error. The daemon resumes a later answer with `--resume` and the saved session id.
+Talk uses `claude --print` with `--permission-mode plan`. Approved work uses `--permission-mode acceptEdits`. Pitwall does not pass `--dangerously-skip-permissions`. If Claude asks for a shell prompt that nobody is there to answer, the task fails. A missing `claude` binary fails the task with a clear error. The daemon resumes a later answer with `--resume` and the saved session id.
 
 `--no-work` refuses work on that machine even if an owner approved it.
 
-The daemon config is `~/.raj/daemons/<name>.json`, mode `0600`. The local run row is `~/.raj/runs/<name>.sqlite`. Start it again with:
+The daemon config is `~/.pitwall/daemons/<name>.json`, mode `0600`. The local run row is `~/.pitwall/runs/<name>.sqlite`. Start it again with:
 
 ```bash
 node dist/cli/main.js daemon start --name backend
@@ -81,7 +81,7 @@ node dist/cli/main.js relay radio owner/name
 node dist/cli/main.js relay start
 ```
 
-Raj reads the newest open issue with the label `radio` and copies the latest 20 comments into the room. Restart after changing the repo. The copy is a message. It is never a task. Raj does not claim, merge, or comment back.
+Pitwall reads the newest open issue with the label `radio` and copies the latest 20 comments into the room. Restart after changing the repo. The copy is a message. It is never a task. Pitwall does not claim, merge, or comment back.
 
 ## Limits to keep in mind
 

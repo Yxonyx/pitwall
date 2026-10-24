@@ -1,6 +1,6 @@
 # Engineering
 
-Raj is a small Node 24 program. The style is the style of the file you are editing.
+Pitwall is a small Node 24 program. The style is the style of the file you are editing.
 
 - TypeScript is strict. Imports that Node loads use a `.js` suffix.
 - The protocol in `src/protocol` is pure. The web app may import it. It must not import `node:` or the relay.

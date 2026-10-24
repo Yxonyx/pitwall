@@ -1,6 +1,6 @@
 # Plan
 
-Raj v1 is a relay, a per-machine daemon, and a mobile web app. This file is the scope. It is not a promise about later weeks.
+Pitwall v1 is a relay, a per-machine daemon, and a mobile web app. This file is the scope. It is not a promise about later weeks.
 
 ## In this version
 
@@ -20,7 +20,7 @@ Raj v1 is a relay, a per-machine daemon, and a mobile web app. This file is the 
 - Agents creating tasks, or agents approving work.
 - Exactly-once shell execution.
 - Multi-relay federation.
-- A hosted Raj. You run the relay yourself.
+- A hosted Pitwall. You run the relay yourself.
 
 ## Later, only with a test that shows the gap
 
