@@ -12,8 +12,13 @@ export function cleanPersonName(input: unknown): string {
   const name = input.normalize('NFKC').trim().replace(/\s+/g, ' ');
   // No control characters, and no invisible formatting ones (zero width joiners, bidi marks): they make a name
   // that looks like another one.
-  if (name.length < 1 || name.length > 40 || /[\u0000-\u001f\u007f-\u009f]|\p{Cf}/u.test(name)) {
+  if (name.length < 1 || name.length > 40 || /[\u0000-\u001f\u007f-\u009f\u2800]|\p{Cf}|\p{Default_Ignorable_Code_Point}/u.test(name)) {
     throw new ProtocolError('bad_name', 'Use a name of 1 to 40 characters.');
+  }
+  // One alphabet to a name: "coder" with a Cyrillic o is a different name that looks the same.
+  const alphabets = [/\p{Script=Latin}/u, /\p{Script=Cyrillic}/u, /\p{Script=Greek}/u].filter((alphabet) => alphabet.test(name));
+  if (alphabets.length > 1) {
+    throw new ProtocolError('bad_name', 'Write a name in one alphabet.');
   }
   return name;
 }
